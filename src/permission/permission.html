@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microphone Permission</title>
+  <style>
+    body {
+      width: 400px;
+      padding: 20px;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+    }
+    h1 {
+      font-size: 24px;
+      margin-bottom: 16px;
+    }
+    p {
+      color: #666;
+      margin-bottom: 24px;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #1557b0;
+    }
+    .status {
+      margin-top: 16px;
+      font-weight: 500;
+    }
+    .success { color: #0f9d58; }
+    .error { color: #d93025; }
+  </style>
+</head>
+<body>
+  <h1>🎤 Microphone Access Required</h1>
+  <p>Voice Starter needs permission to access your microphone for voice transcription.</p>
+  <button id="grantBtn">Grant Microphone Access</button>
+  <div id="status" class="status"></div>
+  <script src="permission.js"></script>
+</body>
+</html>

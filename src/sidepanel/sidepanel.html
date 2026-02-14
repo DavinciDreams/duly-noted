@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Duly Noted</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Main Container -->
+  <div id="app" class="app">
+
+    <!-- Header -->
+    <header class="header">
+      <h1 class="header-title">🎤 Duly Noted</h1>
+      <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Open settings">
+        <span>⚙️</span>
+      </button>
+    </header>
+
+    <!-- Main Content Area (screens will be toggled) -->
+    <main class="main" id="mainContent">
+
+      <!-- Screen: Recording Interface -->
+      <div id="recordingScreen" class="screen active">
+        <div class="recording-container">
+
+          <!-- Recording Status -->
+          <div id="recordingStatus" class="status-idle">
+            <div class="status-icon">🎤</div>
+            <div class="status-text">Ready to Record</div>
+          </div>
+
+          <!-- Recording Controls -->
+          <div class="controls">
+            <button id="recordBtn" class="btn btn-primary btn-large">
+              <span id="recordBtnText">Start Recording</span>
+            </button>
+            <div id="recordingTimer" class="timer" style="display: none;">00:00</div>
+          </div>
+
+          <!-- Transcription Display -->
+          <div id="transcriptionContainer" class="transcription-container" style="display: none;">
+            <div class="section-header">
+              <h2>Transcription</h2>
+              <button id="editTranscriptionBtn" class="btn btn-small">Edit</button>
+            </div>
+            <div id="transcriptionText" class="transcription-text" contenteditable="false"></div>
+          </div>
+
+        </div>
+
+        <!-- Recent Notes Preview -->
+        <div class="recent-notes">
+          <h3>Recent Notes</h3>
+          <div id="recentNotesList" class="notes-list">
+            <p class="empty-state">No notes yet. Start recording to create your first note!</p>
+          </div>
+          <button id="viewAllHistoryBtn" class="btn btn-secondary btn-full">View All History</button>
+        </div>
+      </div>
+
+      <!-- Screen: Destination Chooser -->
+      <div id="destinationScreen" class="screen">
+        <div class="destination-container">
+
+          <!-- Back Button -->
+          <button id="backToRecordingBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Where should this go?</h2>
+
+          <!-- Transcription Preview -->
+          <div class="transcription-preview">
+            <div id="destinationTranscriptionPreview" class="transcription-text-preview"></div>
+          </div>
+
+          <!-- Destination Options -->
+          <div class="destination-options">
+
+            <button class="destination-option" data-destination="draft">
+              <div class="destination-icon">💾</div>
+              <div class="destination-info">
+                <div class="destination-name">Save as Draft</div>
+                <div class="destination-desc">Decide later</div>
+              </div>
+            </button>
+
+            <button class="destination-option" data-destination="github-issue" disabled>
+              <div class="destination-icon">🐙</div>
+              <div class="destination-info">
+                <div class="destination-name">GitHub Issue</div>
+                <div class="destination-desc">Triggers CI/CD</div>
+              </div>
+              <div class="destination-badge">Not configured</div>
+            </button>
+
+            <button class="destination-option" data-destination="github-project" disabled>
+              <div class="destination-icon">📋</div>
+              <div class="destination-info">
+                <div class="destination-name">GitHub Project</div>
+                <div class="destination-desc">Idea backlog</div>
+              </div>
+              <div class="destination-badge">Not configured</div>
+            </button>
+
+            <button class="destination-option" data-destination="onenote" disabled>
+              <div class="destination-icon">📘</div>
+              <div class="destination-info">
+                <div class="destination-name">OneNote</div>
+                <div class="destination-desc">Quick notes</div>
+              </div>
+              <div class="destination-badge">Not configured</div>
+            </button>
+
+            <button class="destination-option" data-destination="notion" disabled>
+              <div class="destination-icon">📓</div>
+              <div class="destination-info">
+                <div class="destination-name">Notion</div>
+                <div class="destination-desc">Knowledge base</div>
+              </div>
+              <div class="destination-badge">Coming soon</div>
+            </button>
+
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Screen: History -->
+      <div id="historyScreen" class="screen">
+        <div class="history-container">
+
+          <!-- Back Button -->
+          <button id="backFromHistoryBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>History</h2>
+
+          <!-- Filter Controls -->
+          <div class="filter-controls">
+            <select id="historyFilter" class="filter-select">
+              <option value="all">All</option>
+              <option value="draft">💾 Drafts only</option>
+              <option value="github-issue">🐙 GitHub Issues</option>
+              <option value="github-project">📋 GitHub Projects</option>
+              <option value="onenote">📘 OneNote</option>
+            </select>
+            <input type="search" id="historySearch" class="search-input" placeholder="Search...">
+          </div>
+
+          <!-- History List -->
+          <div id="historyList" class="history-list">
+            <p class="empty-state">No history yet.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Screen: Settings -->
+      <div id="settingsScreen" class="screen">
+        <div class="settings-container">
+
+          <!-- Back Button -->
+          <button id="backFromSettingsBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Settings</h2>
+
+          <!-- Settings Sections -->
+          <div class="settings-section">
+            <h3>🐙 GitHub Integration</h3>
+            <div class="form-group">
+              <label for="githubToken">Personal Access Token</label>
+              <input type="password" id="githubToken" placeholder="ghp_..." class="input">
+              <button id="testGitHubBtn" class="btn btn-small">Test Connection</button>
+            </div>
+            <div class="form-group">
+              <label for="githubDefaultRepo">Default Repository</label>
+              <input type="text" id="githubDefaultRepo" placeholder="owner/repo" class="input">
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>📘 OneNote Integration</h3>
+            <p class="help-text">OneNote integration coming in Phase 6</p>
+          </div>
+
+          <div class="settings-section">
+            <h3>🎤 Recording</h3>
+            <div class="form-group">
+              <label for="maxDuration">Max Recording Duration (seconds)</label>
+              <input type="number" id="maxDuration" value="300" min="60" max="600" class="input">
+            </div>
+          </div>
+
+          <div class="settings-actions">
+            <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+            <button id="resetSettingsBtn" class="btn btn-secondary">Reset to Defaults</button>
+          </div>
+
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+  </div>
+
+  <script src="sidepanel.js" type="module"></script>
+</body>
+</html>

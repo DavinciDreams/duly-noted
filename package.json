@@ -1,0 +1,15 @@
+{
+  "name": "voice-starter",
+  "version": "1.0.0",
+  "description": "Quick voice notes with AI transcription. Send to GitHub Issues, Projects, OneNote, or save as drafts.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "atlas-agents": "^0.1.0"
+  }
+}
