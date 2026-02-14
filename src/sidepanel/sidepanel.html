@@ -90,8 +90,8 @@
             <button class="destination-option" data-destination="github-issue" disabled>
               <div class="destination-icon">🐙</div>
               <div class="destination-info">
-                <div class="destination-name">GitHub Issue</div>
-                <div class="destination-desc">Triggers CI/CD</div>
+                <div class="destination-name">Create GitHub Issue</div>
+                <div class="destination-desc">Track as actionable task</div>
               </div>
               <div class="destination-badge">Not configured</div>
             </button>
@@ -99,8 +99,8 @@
             <button class="destination-option" data-destination="github-project" disabled>
               <div class="destination-icon">📋</div>
               <div class="destination-info">
-                <div class="destination-name">GitHub Project</div>
-                <div class="destination-desc">Idea backlog</div>
+                <div class="destination-name">Add to GitHub Project</div>
+                <div class="destination-desc">Add to project board</div>
               </div>
               <div class="destination-badge">Not configured</div>
             </button>
@@ -123,6 +123,81 @@
               <div class="destination-badge">Coming soon</div>
             </button>
 
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Screen: GitHub Issue Creation -->
+      <div id="githubIssueScreen" class="screen">
+        <div class="form-container">
+
+          <!-- Back Button -->
+          <button id="backFromGitHubIssueBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Create GitHub Issue</h2>
+
+          <!-- Repository Picker -->
+          <div class="form-group">
+            <label for="githubRepoSearch">Repository</label>
+            <div class="repo-picker">
+              <input
+                type="text"
+                id="githubRepoSearch"
+                class="input"
+                placeholder="Search repositories..."
+                autocomplete="off">
+              <div id="repoList" class="dropdown-list" style="display: none;">
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">Recently Used</div>
+                  <div id="recentReposList"></div>
+                </div>
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">All Repositories</div>
+                  <div id="allReposList"></div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="selectedRepoId" value="">
+          </div>
+
+          <!-- Issue Title -->
+          <div class="form-group">
+            <label for="issueTitle">Title</label>
+            <input
+              type="text"
+              id="issueTitle"
+              class="input"
+              placeholder="Brief description of the issue"
+              required>
+          </div>
+
+          <!-- Issue Body -->
+          <div class="form-group">
+            <label for="issueBody">Description</label>
+            <textarea
+              id="issueBody"
+              class="textarea"
+              rows="6"
+              placeholder="Detailed description (supports Markdown)"></textarea>
+          </div>
+
+          <!-- Labels (Optional) -->
+          <div class="form-group">
+            <label for="issueLabels">Labels (optional)</label>
+            <input
+              type="text"
+              id="issueLabels"
+              class="input"
+              placeholder="bug, enhancement, etc. (comma-separated)">
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button id="createIssueBtn" class="btn btn-primary">Create Issue</button>
+            <button id="cancelIssueBtn" class="btn btn-secondary">Cancel</button>
           </div>
 
         </div>
