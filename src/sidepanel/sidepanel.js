@@ -6,6 +6,11 @@
 import { getDrafts, getHistory, getSettings, updateSettings, resetSettings } from '../lib/storage.js';
 import { formatRelativeTime, getDestinationIcon, truncateText } from '../utils/helpers.js';
 import { TranscriptionService } from '../lib/transcription-service.js';
+import { GitHubOAuth } from '../lib/github-oauth.js';
+import { GitHubService } from '../lib/github-service.js';
+import { GitHubCache } from '../lib/github-cache.js';
+import { NotionOAuth } from '../lib/notion-oauth.js';
+import { NotionService } from '../lib/notion-service.js';
 
 console.log('[Side Panel] Loading...');
 
@@ -19,6 +24,8 @@ let transcriptionService = null;
 const screens = {
   RECORDING: 'recordingScreen',
   DESTINATION: 'destinationScreen',
+  GITHUB_ISSUE: 'githubIssueScreen',
+  GITHUB_PROJECT: 'githubProjectScreen',
   HISTORY: 'historyScreen',
   SETTINGS: 'settingsScreen',
 };
@@ -79,8 +86,62 @@ const destinationTranscriptionPreview = document.getElementById('destinationTran
 
 // Forms
 const githubTokenInput = document.getElementById('githubToken');
-const githubDefaultRepoInput = document.getElementById('githubDefaultRepo');
 const maxDurationInput = document.getElementById('maxDuration');
+
+// GitHub OAuth elements
+const githubOAuthSection = document.getElementById('githubOAuthSection');
+const githubNotConnected = document.getElementById('githubNotConnected');
+const githubConnected = document.getElementById('githubConnected');
+const githubSignInBtn = document.getElementById('githubSignInBtn');
+const githubSignOutBtn = document.getElementById('githubSignOutBtn');
+const githubUsername = document.getElementById('githubUsername');
+const githubAvatar = document.getElementById('githubAvatar');
+const developerModeToggle = document.getElementById('developerModeToggle');
+const githubDeveloperSection = document.getElementById('githubDeveloperSection');
+
+// Notion OAuth elements
+const notionOAuthSection = document.getElementById('notionOAuthSection');
+const notionNotConnected = document.getElementById('notionNotConnected');
+const notionConnected = document.getElementById('notionConnected');
+const notionSignInBtn = document.getElementById('notionSignInBtn');
+const notionSignOutBtn = document.getElementById('notionSignOutBtn');
+const notionWorkspaceName = document.getElementById('notionWorkspaceName');
+const notionWorkspaceIcon = document.getElementById('notionWorkspaceIcon');
+
+// GitHub Issue form elements
+const backFromGitHubIssueBtn = document.getElementById('backFromGitHubIssueBtn');
+const githubRepoSearch = document.getElementById('githubRepoSearch');
+const repoList = document.getElementById('repoList');
+const recentReposList = document.getElementById('recentReposList');
+const allReposList = document.getElementById('allReposList');
+const selectedRepoId = document.getElementById('selectedRepoId');
+const issueTitle = document.getElementById('issueTitle');
+const issueBody = document.getElementById('issueBody');
+const issueLabels = document.getElementById('issueLabels');
+const createIssueBtn = document.getElementById('createIssueBtn');
+const cancelIssueBtn = document.getElementById('cancelIssueBtn');
+
+// GitHub Project form elements
+const backFromGitHubProjectBtn = document.getElementById('backFromGitHubProjectBtn');
+const githubProjectSearch = document.getElementById('githubProjectSearch');
+const projectList = document.getElementById('projectList');
+const recentProjectsList = document.getElementById('recentProjectsList');
+const allProjectsList = document.getElementById('allProjectsList');
+const selectedProjectId = document.getElementById('selectedProjectId');
+const projectItemTitle = document.getElementById('projectItemTitle');
+const projectItemBody = document.getElementById('projectItemBody');
+const createProjectItemBtn = document.getElementById('createProjectItemBtn');
+const cancelProjectItemBtn = document.getElementById('cancelProjectItemBtn');
+
+// History Detail Modal elements
+const historyDetailModal = document.getElementById('historyDetailModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const closeModalBtnFooter = document.getElementById('closeModalBtnFooter');
+const modalTitle = document.getElementById('modalTitle');
+const modalTranscription = document.getElementById('modalTranscription');
+const modalDestination = document.getElementById('modalDestination');
+const modalLink = document.getElementById('modalLink');
+const modalLinkSection = document.getElementById('modalLinkSection');
 
 // ============================================================================
 // Event Listeners
@@ -128,6 +189,49 @@ document.querySelectorAll('.destination-option').forEach(btn => {
 // Settings
 saveSettingsBtn.addEventListener('click', handleSaveSettings);
 resetSettingsBtn.addEventListener('click', handleResetSettings);
+
+// GitHub OAuth
+githubSignInBtn.addEventListener('click', handleGitHubSignIn);
+githubSignOutBtn.addEventListener('click', handleGitHubSignOut);
+developerModeToggle.addEventListener('change', handleDeveloperModeToggle);
+
+// Notion OAuth
+notionSignInBtn.addEventListener('click', handleNotionSignIn);
+notionSignOutBtn.addEventListener('click', handleNotionSignOut);
+
+// GitHub Issue form
+backFromGitHubIssueBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+cancelIssueBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+createIssueBtn.addEventListener('click', handleCreateIssue);
+githubRepoSearch.addEventListener('input', handleRepoSearch);
+githubRepoSearch.addEventListener('focus', () => showRepoDropdown());
+githubRepoSearch.addEventListener('blur', () => {
+  // Delay to allow click on repo item
+  setTimeout(() => hideRepoDropdown(), 300);
+});
+
+// GitHub Project form
+backFromGitHubProjectBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+cancelProjectItemBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+createProjectItemBtn.addEventListener('click', handleCreateProjectItem);
+githubProjectSearch.addEventListener('input', handleProjectSearch);
+githubProjectSearch.addEventListener('focus', () => showProjectDropdown());
+githubProjectSearch.addEventListener('blur', () => {
+  setTimeout(() => hideProjectDropdown(), 300);
+});
+
+// Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
+// No need for message listeners
+
+// History Detail Modal
+closeModalBtn.addEventListener('click', hideHistoryDetailModal);
+closeModalBtnFooter.addEventListener('click', hideHistoryDetailModal);
+historyDetailModal.addEventListener('click', (e) => {
+  // Close if clicking overlay (outside modal content)
+  if (e.target === historyDetailModal || e.target.classList.contains('modal-overlay')) {
+    hideHistoryDetailModal();
+  }
+});
 
 // ============================================================================
 // Recording Functions
@@ -346,11 +450,14 @@ function stopTimer() {
 async function showDestinationChooser() {
   destinationTranscriptionPreview.textContent = truncateText(currentTranscription, 200);
 
-  // Enable/disable destination options based on settings
+  // Enable/disable destination options based on OAuth authentication
+  const isGitHubAuthenticated = await GitHubOAuth.isAuthenticated();
+  const isNotionAuthenticated = await NotionOAuth.isAuthenticated();
   const settings = await getSettings();
 
-  document.querySelector('[data-destination="github-issue"]').disabled = !settings.githubToken;
-  document.querySelector('[data-destination="github-project"]').disabled = !settings.githubToken;
+  document.querySelector('[data-destination="github-issue"]').disabled = !isGitHubAuthenticated;
+  document.querySelector('[data-destination="github-project"]').disabled = !isGitHubAuthenticated;
+  document.querySelector('[data-destination="notion"]').disabled = !isNotionAuthenticated;
   document.querySelector('[data-destination="onenote"]').disabled = !settings.onenoteToken;
 
   showScreen(screens.DESTINATION);
@@ -361,6 +468,10 @@ async function handleDestinationSelected(destination) {
 
   if (destination === 'draft') {
     await saveDraft();
+  } else if (destination === 'github-issue') {
+    await showGitHubIssueForm();
+  } else if (destination === 'github-project') {
+    await showGitHubProjectForm();
   } else {
     showToast(`${destination} integration coming in later phases`, 'warning');
   }
@@ -498,9 +609,9 @@ function handleHistoryItemClick(itemId, allItems) {
   if (item.status === 'draft') {
     // TODO: Show draft promotion UI in Phase 3
     showToast('Draft promotion coming in Phase 3', 'info');
-  } else if (item.artifactUrl) {
-    // Open artifact in new tab
-    chrome.tabs.create({ url: item.artifactUrl });
+  } else {
+    // Show detail modal with transcription and link
+    showHistoryDetailModal(item);
   }
 }
 
@@ -513,8 +624,11 @@ async function loadSettings() {
     const settings = await getSettings();
 
     githubTokenInput.value = settings.githubToken || '';
-    githubDefaultRepoInput.value = settings.githubDefaultRepo || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
+
+    // Update OAuth UIs
+    await updateGitHubConnectionUI();
+    await updateNotionConnectionUI();
   } catch (error) {
     console.error('[Side Panel] Error loading settings:', error);
     showToast('Error loading settings', 'error');
@@ -525,7 +639,6 @@ async function handleSaveSettings() {
   try {
     const updates = {
       githubToken: githubTokenInput.value.trim() || null,
-      githubDefaultRepo: githubDefaultRepoInput.value.trim() || null,
       maxRecordingDuration: parseInt(maxDurationInput.value) || 300,
     };
 
@@ -563,21 +676,263 @@ async function handleResetSettings() {
 }
 
 // ============================================================================
+// GitHub OAuth Functions
+// ============================================================================
+
+async function handleGitHubSignIn() {
+  try {
+    console.log('[Side Panel] Initiating GitHub OAuth flow');
+    githubSignInBtn.disabled = true;
+    githubSignInBtn.textContent = 'Opening GitHub...';
+
+    // Launch OAuth flow - this now completes the full flow and returns user data
+    const result = await GitHubOAuth.authorize();
+
+    // Update UI with success
+    await handleGitHubAuthSuccess(result.user.login);
+  } catch (error) {
+    console.error('[Side Panel] GitHub sign-in error:', error);
+    showToast(`Failed to sign in: ${error.message}`, 'error');
+    githubSignInBtn.disabled = false;
+    githubSignInBtn.innerHTML = `
+      <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      Sign in with GitHub
+    `;
+  }
+}
+
+async function handleGitHubAuthSuccess(username) {
+  console.log('[Side Panel] GitHub auth successful:', username);
+
+  // Reset sign in button
+  githubSignInBtn.disabled = false;
+  githubSignInBtn.innerHTML = `
+    <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+    </svg>
+    Sign in with GitHub
+  `;
+
+  // Update UI to show connected state
+  await updateGitHubConnectionUI();
+
+  // Enable GitHub destination options
+  updateDestinationOptions();
+
+  showToast(`Connected to GitHub as @${username}`, 'success');
+}
+
+async function handleGitHubSignOut() {
+  if (!confirm('Are you sure you want to sign out of GitHub?')) {
+    return;
+  }
+
+  try {
+    await GitHubOAuth.signOut();
+    await updateGitHubConnectionUI();
+    updateDestinationOptions();
+    showToast('Signed out of GitHub', 'success');
+  } catch (error) {
+    console.error('[Side Panel] GitHub sign-out error:', error);
+    showToast(`Failed to sign out: ${error.message}`, 'error');
+  }
+}
+
+function handleDeveloperModeToggle(e) {
+  const isDeveloperMode = e.target.checked;
+
+  if (isDeveloperMode) {
+    githubOAuthSection.style.display = 'none';
+    githubDeveloperSection.style.display = 'block';
+  } else {
+    githubOAuthSection.style.display = 'block';
+    githubDeveloperSection.style.display = 'none';
+  }
+}
+
+// ============================================================================
+// Notion OAuth Functions
+// ============================================================================
+
+async function handleNotionSignIn() {
+  try {
+    console.log('[Side Panel] Initiating Notion OAuth flow');
+    notionSignInBtn.disabled = true;
+    notionSignInBtn.textContent = 'Opening Notion...';
+
+    const result = await NotionOAuth.authorize();
+    await handleNotionAuthSuccess(result.workspace.name);
+  } catch (error) {
+    console.error('[Side Panel] Notion sign-in error:', error);
+    showToast(`Failed to sign in: ${error.message}`, 'error');
+  } finally {
+    notionSignInBtn.disabled = false;
+    notionSignInBtn.innerHTML = `
+      <svg class="oauth-icon" viewBox="0 0 100 100" width="20" height="20" fill="currentColor">
+        <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"/>
+      </svg>
+      Sign in with Notion
+    `;
+  }
+}
+
+async function handleNotionAuthSuccess(workspaceName) {
+  console.log('[Side Panel] Notion auth successful:', workspaceName);
+  await updateNotionConnectionUI();
+  updateDestinationOptions();
+  showToast(`Connected to Notion workspace: ${workspaceName}`, 'success');
+}
+
+async function handleNotionSignOut() {
+  if (!confirm('Are you sure you want to sign out of Notion?')) {
+    return;
+  }
+
+  try {
+    await NotionOAuth.signOut();
+    await updateNotionConnectionUI();
+    updateDestinationOptions();
+    showToast('Signed out of Notion', 'success');
+  } catch (error) {
+    console.error('[Side Panel] Notion sign-out error:', error);
+    showToast(`Failed to sign out: ${error.message}`, 'error');
+  }
+}
+
+async function updateNotionConnectionUI() {
+  const isAuth = await NotionOAuth.isAuthenticated();
+
+  if (isAuth) {
+    // Get workspace info from storage
+    const workspaceInfo = await NotionOAuth.getWorkspaceInfo();
+
+    if (workspaceInfo) {
+      notionWorkspaceName.textContent = workspaceInfo.name;
+      notionWorkspaceIcon.textContent = workspaceInfo.icon || '📝';
+    }
+
+    notionNotConnected.style.display = 'none';
+    notionConnected.style.display = 'block';
+  } else {
+    notionNotConnected.style.display = 'block';
+    notionConnected.style.display = 'none';
+  }
+}
+
+async function updateGitHubConnectionUI() {
+  const isAuth = await GitHubOAuth.isAuthenticated();
+
+  if (isAuth) {
+    // Get user info from storage
+    const { githubUsername: username } = await chrome.storage.local.get('githubUsername');
+
+    if (username) {
+      // Fetch user data for avatar
+      try {
+        const user = await GitHubService.getUser();
+        githubUsername.textContent = `@${user.login}`;
+        githubAvatar.src = user.avatar_url;
+        githubAvatar.alt = `${user.login}'s avatar`;
+      } catch (error) {
+        console.error('[Side Panel] Error fetching user data:', error);
+        githubUsername.textContent = `@${username}`;
+        githubAvatar.src = `https://github.com/${username}.png`;
+      }
+    }
+
+    githubNotConnected.style.display = 'none';
+    githubConnected.style.display = 'block';
+  } else {
+    githubNotConnected.style.display = 'block';
+    githubConnected.style.display = 'none';
+  }
+}
+
+function updateDestinationOptions() {
+  // Update GitHub destination buttons
+  GitHubOAuth.isAuthenticated().then(isAuth => {
+    const githubIssueBtn = document.querySelector('[data-destination="github-issue"]');
+    const githubProjectBtn = document.querySelector('[data-destination="github-project"]');
+
+    if (githubIssueBtn) {
+      if (isAuth) {
+        githubIssueBtn.disabled = false;
+        const badge = githubIssueBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        githubIssueBtn.disabled = true;
+        if (!githubIssueBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          githubIssueBtn.appendChild(badge);
+        }
+      }
+    }
+
+    if (githubProjectBtn) {
+      if (isAuth) {
+        githubProjectBtn.disabled = false;
+        const badge = githubProjectBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        githubProjectBtn.disabled = true;
+        if (!githubProjectBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          githubProjectBtn.appendChild(badge);
+        }
+      }
+    }
+  });
+
+  // Update Notion destination button
+  NotionOAuth.isAuthenticated().then(isAuth => {
+    const notionBtn = document.querySelector('[data-destination="notion"]');
+
+    if (notionBtn) {
+      if (isAuth) {
+        notionBtn.disabled = false;
+        const badge = notionBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        notionBtn.disabled = true;
+        if (!notionBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          notionBtn.appendChild(badge);
+        }
+      }
+    }
+  });
+}
+
+// ============================================================================
 // Toast Notifications
 // ============================================================================
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', duration = 3000) {
   const toastContainer = document.getElementById('toastContainer');
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+
+  // Support HTML content for links
+  if (message.includes('<a')) {
+    toast.innerHTML = message;
+  } else {
+    toast.textContent = message;
+  }
 
   toastContainer.appendChild(toast);
 
   setTimeout(() => {
     toast.remove();
-  }, 3000);
+  }, duration);
 }
 
 // ============================================================================
@@ -590,11 +945,482 @@ async function init() {
   // Load initial data
   await loadRecentNotes();
 
+  // Update OAuth connection UIs
+  await updateGitHubConnectionUI();
+  await updateNotionConnectionUI();
+
+  // Update destination button states based on auth
+  updateDestinationOptions();
+
   // Show recording screen
   showScreen(screens.RECORDING);
 
   console.log('[Side Panel] Ready');
 }
+
+// ============================================================================
+// GitHub Issue Form Functions
+// ============================================================================
+
+let repositories = [];
+let selectedRepo = null;
+
+async function showGitHubIssueForm() {
+  try {
+    // Pre-fill issue body with transcription
+    issueBody.value = currentTranscription;
+
+    // Load repositories
+    showToast('Loading repositories...', 'info');
+    repositories = await GitHubService.fetchRepositories();
+    console.log(`[GitHub Issue] Loaded ${repositories.length} repositories`);
+
+    // Show the form
+    showScreen(screens.GITHUB_ISSUE);
+
+    // Focus title input
+    issueTitle.focus();
+  } catch (error) {
+    console.error('[GitHub Issue] Error loading repositories:', error);
+    showToast(`Failed to load repositories: ${error.message}`, 'error');
+  }
+}
+
+function showRepoDropdown() {
+  renderRepoList();
+  repoList.style.display = 'block';
+}
+
+function hideRepoDropdown() {
+  repoList.style.display = 'none';
+}
+
+async function handleRepoSearch(e) {
+  const query = e.target.value.trim();
+  renderRepoList(query);
+}
+
+async function renderRepoList(query = '') {
+  // Get recently used repos
+  const recentRepos = await GitHubCache.getRecentlyUsedRepos();
+  const recentRepoFullNames = recentRepos.map(r => r.fullName);
+
+  // Filter all repositories
+  const filteredRepos = query
+    ? GitHubService.searchRepositories(query, repositories)
+    : repositories;
+
+  // If we have recently used AND no search query, show them
+  if (recentRepos.length > 0 && !query) {
+    recentReposList.parentElement.style.display = 'block';
+    recentReposList.innerHTML = recentRepos.map(repo =>
+      createRepoItem(repo.fullName, repo.description, true)
+    ).join('');
+  } else {
+    // Hide recently used section if empty or searching
+    recentReposList.parentElement.style.display = 'none';
+  }
+
+  // Always show "All Repositories" section with available repos
+  const reposToShow = query
+    ? filteredRepos
+    : filteredRepos.filter(repo => !recentRepoFullNames.includes(repo.full_name));
+
+  // Update section title
+  const allReposSection = allReposList.parentElement;
+  const sectionTitle = allReposSection.querySelector('.dropdown-section-title');
+  sectionTitle.textContent = query ? 'Search Results' : (recentRepos.length > 0 ? 'All Repositories' : 'Your Repositories');
+
+  if (reposToShow.length > 0) {
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = reposToShow
+      .slice(0, 20) // Limit to 20 results
+      .map(repo => createRepoItem(repo.full_name, repo.description, false))
+      .join('');
+  } else if (repositories.length === 0) {
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = '<div class="repo-empty">No repositories found. Create one on GitHub first.</div>';
+  } else {
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = '<div class="repo-empty">No matching repositories</div>';
+  }
+
+  // Add click handlers (use mousedown to fire before blur)
+  document.querySelectorAll('.repo-item').forEach(item => {
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // Prevent input blur
+      handleRepoSelected(e);
+    });
+  });
+}
+
+function createRepoItem(fullName, description, isRecent) {
+  return `
+    <div class="repo-item" data-repo="${fullName}">
+      <div class="repo-name">${fullName}${isRecent ? ' ⭐' : ''}</div>
+      ${description ? `<div class="repo-description">${description}</div>` : ''}
+    </div>
+  `;
+}
+
+function handleRepoSelected(e) {
+  const repoFullName = e.currentTarget.getAttribute('data-repo');
+  selectedRepo = repositories.find(r => r.full_name === repoFullName);
+
+  if (selectedRepo) {
+    githubRepoSearch.value = selectedRepo.full_name;
+    selectedRepoId.value = selectedRepo.full_name;
+
+    // Update UI
+    document.querySelectorAll('.repo-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    e.currentTarget.classList.add('selected');
+
+    hideRepoDropdown();
+  }
+}
+
+async function handleCreateIssue() {
+  try {
+    // Validate inputs
+    if (!selectedRepo) {
+      showToast('Please select a repository', 'error');
+      githubRepoSearch.focus();
+      return;
+    }
+
+    if (!issueTitle.value.trim()) {
+      showToast('Please enter an issue title', 'error');
+      issueTitle.focus();
+      return;
+    }
+
+    // Disable button and show loading
+    createIssueBtn.disabled = true;
+    createIssueBtn.textContent = 'Creating...';
+
+    // Parse repository owner and name
+    const [owner, repo] = selectedRepo.full_name.split('/');
+
+    // Parse labels (comma-separated)
+    const labels = issueLabels.value
+      .split(',')
+      .map(l => l.trim())
+      .filter(l => l.length > 0);
+
+    // Create issue data
+    const issueData = {
+      title: issueTitle.value.trim(),
+      body: issueBody.value.trim(),
+      labels: labels.length > 0 ? labels : undefined
+    };
+
+    console.log('[GitHub Issue] Creating issue:', issueData);
+
+    // Create the issue
+    const createdIssue = await GitHubService.createIssue(owner, repo, issueData);
+
+    console.log('[GitHub Issue] Issue created:', createdIssue.html_url);
+
+    // Save to history
+    const { generateUUID } = await import('../utils/helpers.js');
+    const { addToHistory } = await import('../lib/storage.js');
+
+    await addToHistory({
+      id: generateUUID(),
+      timestamp: Date.now(),
+      transcription: currentTranscription,
+      destination: 'github-issue',
+      metadata: {
+        issueNumber: createdIssue.number,
+        issueUrl: createdIssue.html_url,
+        repository: selectedRepo.full_name,
+        title: createdIssue.title
+      }
+    });
+
+    // Show success with clickable link
+    showToast(
+      `✓ Issue #${createdIssue.number} created! <a href="${createdIssue.html_url}" target="_blank" style="color: inherit; text-decoration: underline;">View on GitHub →</a>`,
+      'success',
+      5000 // Show for 5 seconds
+    );
+
+    // Reset form
+    resetIssueForm();
+
+    // Go back to recording screen
+    showScreen(screens.RECORDING);
+
+  } catch (error) {
+    console.error('[GitHub Issue] Error creating issue:', error);
+    showToast(`Failed to create issue: ${error.message}`, 'error');
+  } finally {
+    createIssueBtn.disabled = false;
+    createIssueBtn.textContent = 'Create Issue';
+  }
+}
+
+function resetIssueForm() {
+  githubRepoSearch.value = '';
+  selectedRepoId.value = '';
+  issueTitle.value = '';
+  issueBody.value = '';
+  issueLabels.value = '';
+  selectedRepo = null;
+}
+
+// ============================================================================
+// History Detail Modal Functions
+// ============================================================================
+
+function showHistoryDetailModal(item) {
+  // Set modal content
+  modalTranscription.textContent = item.transcription;
+
+  // Set destination
+  const destinationNames = {
+    'github-issue': 'GitHub Issue',
+    'github-project': 'GitHub Project',
+    'notion': 'Notion',
+    'onenote': 'OneNote',
+    'draft': 'Draft'
+  };
+  modalDestination.textContent = destinationNames[item.destination] || item.destination;
+
+  // Set link if available
+  const linkUrl = item.metadata?.issueUrl || item.metadata?.projectUrl || item.artifactUrl;
+  if (linkUrl) {
+    modalLink.href = linkUrl;
+
+    // Set link text based on destination
+    if (item.destination === 'github-issue') {
+      modalLink.textContent = `Issue #${item.metadata.issueNumber} on GitHub →`;
+    } else if (item.destination === 'github-project') {
+      modalLink.textContent = `View on GitHub Projects →`;
+    } else {
+      modalLink.textContent = `View →`;
+    }
+
+    modalLinkSection.style.display = 'block';
+  } else {
+    modalLinkSection.style.display = 'none';
+  }
+
+  // Show modal
+  historyDetailModal.style.display = 'flex';
+}
+
+function hideHistoryDetailModal() {
+  historyDetailModal.style.display = 'none';
+}
+
+// ============================================================================
+// GitHub Project Form Functions
+// ============================================================================
+
+let projects = [];
+let selectedProject = null;
+
+async function showGitHubProjectForm() {
+  try {
+    // Pre-fill item body with transcription
+    projectItemBody.value = currentTranscription;
+
+    // Load projects
+    showToast('Loading projects...', 'info');
+    projects = await GitHubService.fetchProjects();
+    console.log(`[GitHub Project] Loaded ${projects.length} projects`);
+
+    // Show the form
+    showScreen(screens.GITHUB_PROJECT);
+
+    // Focus title input
+    projectItemTitle.focus();
+  } catch (error) {
+    console.error('[GitHub Project] Error loading projects:', error);
+    showToast(`Failed to load projects: ${error.message}`, 'error');
+  }
+}
+
+function showProjectDropdown() {
+  renderProjectList();
+  projectList.style.display = 'block';
+}
+
+function hideProjectDropdown() {
+  projectList.style.display = 'none';
+}
+
+async function handleProjectSearch(e) {
+  const query = e.target.value.trim();
+  renderProjectList(query);
+}
+
+async function renderProjectList(query = '') {
+  // Get recently used projects
+  const recentProjects = await GitHubCache.getRecentlyUsedProjects();
+  const recentProjectIds = recentProjects.map(p => p.id);
+
+  // Filter all projects
+  const filteredProjects = query
+    ? GitHubService.searchProjects(query, projects)
+    : projects;
+
+  // If we have recently used AND no search query, show them
+  if (recentProjects.length > 0 && !query) {
+    recentProjectsList.parentElement.style.display = 'block';
+    recentProjectsList.innerHTML = recentProjects.map(project =>
+      createProjectItem(project.id, project.title, project.description, true)
+    ).join('');
+  } else {
+    // Hide recently used section if empty or searching
+    recentProjectsList.parentElement.style.display = 'none';
+  }
+
+  // Always show "All Projects" section with available projects
+  const projectsToShow = query
+    ? filteredProjects
+    : filteredProjects.filter(project => !recentProjectIds.includes(project.id));
+
+  // Update section title
+  const allProjectsSection = allProjectsList.parentElement;
+  const sectionTitle = allProjectsSection.querySelector('.dropdown-section-title');
+  sectionTitle.textContent = query ? 'Search Results' : (recentProjects.length > 0 ? 'All Projects' : 'Your Projects');
+
+  if (projectsToShow.length > 0) {
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = projectsToShow
+      .slice(0, 20)
+      .map(project => createProjectItem(project.id, project.title, project.description, false))
+      .join('');
+  } else if (projects.length === 0) {
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = '<div class="repo-empty">No projects found. Create one on GitHub first.</div>';
+  } else {
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = '<div class="repo-empty">No matching projects</div>';
+  }
+
+  // Add click handlers (use mousedown to fire before blur)
+  document.querySelectorAll('.project-item').forEach(item => {
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // Prevent input blur
+      handleProjectSelected(e);
+    });
+  });
+}
+
+function createProjectItem(id, title, description, isRecent) {
+  return `
+    <div class="project-item repo-item" data-project-id="${id}">
+      <div class="repo-name">${title}${isRecent ? ' ⭐' : ''}</div>
+      ${description ? `<div class="repo-description">${description}</div>` : ''}
+    </div>
+  `;
+}
+
+function handleProjectSelected(e) {
+  const projectId = e.currentTarget.getAttribute('data-project-id');
+  selectedProject = projects.find(p => p.id === projectId);
+
+  if (selectedProject) {
+    githubProjectSearch.value = selectedProject.title;
+    selectedProjectId.value = selectedProject.id;
+
+    // Update UI
+    document.querySelectorAll('.project-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    e.currentTarget.classList.add('selected');
+
+    hideProjectDropdown();
+  }
+}
+
+async function handleCreateProjectItem() {
+  try {
+    // Validate inputs
+    if (!selectedProject) {
+      showToast('Please select a project', 'error');
+      githubProjectSearch.focus();
+      return;
+    }
+
+    if (!projectItemTitle.value.trim()) {
+      showToast('Please enter a title', 'error');
+      projectItemTitle.focus();
+      return;
+    }
+
+    // Disable button and show loading
+    createProjectItemBtn.disabled = true;
+    createProjectItemBtn.textContent = 'Adding...';
+
+    // Create draft issue data
+    const itemData = {
+      title: projectItemTitle.value.trim(),
+      body: projectItemBody.value.trim()
+    };
+
+    console.log('[GitHub Project] Creating draft issue:', itemData);
+
+    // Create the draft issue
+    const createdItem = await GitHubService.createProjectDraftIssue(selectedProject.id, itemData);
+
+    console.log('[GitHub Project] Draft issue created');
+
+    // Save to history
+    const { generateUUID } = await import('../utils/helpers.js');
+    const { addToHistory } = await import('../lib/storage.js');
+
+    await addToHistory({
+      id: generateUUID(),
+      timestamp: Date.now(),
+      transcription: currentTranscription,
+      destination: 'github-project',
+      metadata: {
+        projectId: selectedProject.id,
+        projectTitle: selectedProject.title,
+        projectUrl: selectedProject.url,
+        itemTitle: itemData.title
+      }
+    });
+
+    // Show success
+    showToast(
+      `✓ Added to project! <a href="${selectedProject.url}" target="_blank" style="color: inherit; text-decoration: underline;">View Project →</a>`,
+      'success',
+      5000
+    );
+
+    // Reset form
+    resetProjectForm();
+
+    // Go back to recording screen
+    showScreen(screens.RECORDING);
+
+  } catch (error) {
+    console.error('[GitHub Project] Error creating draft issue:', error);
+    showToast(`Failed to add to project: ${error.message}`, 'error');
+  } finally {
+    createProjectItemBtn.disabled = false;
+    createProjectItemBtn.textContent = 'Add to Project';
+  }
+}
+
+function resetProjectForm() {
+  githubProjectSearch.value = '';
+  selectedProjectId.value = '';
+  projectItemTitle.value = '';
+  projectItemBody.value = '';
+  selectedProject = null;
+}
+
+// ============================================================================
+// Initialization
+// ============================================================================
 
 // Start when DOM is loaded
 if (document.readyState === 'loading') {

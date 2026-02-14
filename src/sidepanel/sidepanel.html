@@ -90,8 +90,8 @@
             <button class="destination-option" data-destination="github-issue" disabled>
               <div class="destination-icon">🐙</div>
               <div class="destination-info">
-                <div class="destination-name">GitHub Issue</div>
-                <div class="destination-desc">Triggers CI/CD</div>
+                <div class="destination-name">Create GitHub Issue</div>
+                <div class="destination-desc">Track as actionable task</div>
               </div>
               <div class="destination-badge">Not configured</div>
             </button>
@@ -99,8 +99,8 @@
             <button class="destination-option" data-destination="github-project" disabled>
               <div class="destination-icon">📋</div>
               <div class="destination-info">
-                <div class="destination-name">GitHub Project</div>
-                <div class="destination-desc">Idea backlog</div>
+                <div class="destination-name">Add to GitHub Project</div>
+                <div class="destination-desc">Add to project board</div>
               </div>
               <div class="destination-badge">Not configured</div>
             </button>
@@ -123,6 +123,146 @@
               <div class="destination-badge">Coming soon</div>
             </button>
 
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Screen: GitHub Issue Creation -->
+      <div id="githubIssueScreen" class="screen">
+        <div class="form-container">
+
+          <!-- Back Button -->
+          <button id="backFromGitHubIssueBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Create GitHub Issue</h2>
+
+          <!-- Repository Picker -->
+          <div class="form-group">
+            <label for="githubRepoSearch">Repository</label>
+            <div class="repo-picker">
+              <input
+                type="text"
+                id="githubRepoSearch"
+                class="input"
+                placeholder="Search repositories..."
+                autocomplete="off">
+              <div id="repoList" class="dropdown-list" style="display: none;">
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">Recently Used</div>
+                  <div id="recentReposList"></div>
+                </div>
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">All Repositories</div>
+                  <div id="allReposList"></div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="selectedRepoId" value="">
+          </div>
+
+          <!-- Issue Title -->
+          <div class="form-group">
+            <label for="issueTitle">Title</label>
+            <input
+              type="text"
+              id="issueTitle"
+              class="input"
+              placeholder="Brief description of the issue"
+              required>
+          </div>
+
+          <!-- Issue Body -->
+          <div class="form-group">
+            <label for="issueBody">Description</label>
+            <textarea
+              id="issueBody"
+              class="textarea"
+              rows="6"
+              placeholder="Detailed description (supports Markdown)"></textarea>
+          </div>
+
+          <!-- Labels (Optional) -->
+          <div class="form-group">
+            <label for="issueLabels">Labels (optional)</label>
+            <input
+              type="text"
+              id="issueLabels"
+              class="input"
+              placeholder="bug, enhancement, etc. (comma-separated)">
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button id="createIssueBtn" class="btn btn-primary">Create Issue</button>
+            <button id="cancelIssueBtn" class="btn btn-secondary">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Screen: GitHub Project -->
+      <div id="githubProjectScreen" class="screen">
+        <div class="form-container">
+
+          <!-- Back Button -->
+          <button id="backFromGitHubProjectBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Add to GitHub Project</h2>
+
+          <!-- Project Picker -->
+          <div class="form-group">
+            <label for="githubProjectSearch">Project</label>
+            <div class="project-picker">
+              <input
+                type="text"
+                id="githubProjectSearch"
+                class="input"
+                placeholder="Search projects..."
+                autocomplete="off">
+              <div id="projectList" class="dropdown-list" style="display: none;">
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">Recently Used</div>
+                  <div id="recentProjectsList"></div>
+                </div>
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">All Projects</div>
+                  <div id="allProjectsList"></div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="selectedProjectId" value="">
+          </div>
+
+          <!-- Draft Issue Title -->
+          <div class="form-group">
+            <label for="projectItemTitle">Title</label>
+            <input
+              type="text"
+              id="projectItemTitle"
+              class="input"
+              placeholder="Brief description"
+              required>
+          </div>
+
+          <!-- Draft Issue Body -->
+          <div class="form-group">
+            <label for="projectItemBody">Description</label>
+            <textarea
+              id="projectItemBody"
+              class="textarea"
+              rows="6"
+              placeholder="Detailed description (supports Markdown)"></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button id="createProjectItemBtn" class="btn btn-primary">Add to Project</button>
+            <button id="cancelProjectItemBtn" class="btn btn-secondary">Cancel</button>
           </div>
 
         </div>
@@ -173,14 +313,80 @@
           <!-- Settings Sections -->
           <div class="settings-section">
             <h3>🐙 GitHub Integration</h3>
-            <div class="form-group">
-              <label for="githubToken">Personal Access Token</label>
-              <input type="password" id="githubToken" placeholder="ghp_..." class="input">
-              <button id="testGitHubBtn" class="btn btn-small">Test Connection</button>
+
+            <!-- OAuth Section (Default) -->
+            <div id="githubOAuthSection">
+              <div id="githubNotConnected" class="oauth-status">
+                <p class="help-text">Connect your GitHub account to create issues and manage projects</p>
+                <button id="githubSignInBtn" class="btn btn-primary btn-oauth">
+                  <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+                  </svg>
+                  Sign in with GitHub
+                </button>
+              </div>
+
+              <div id="githubConnected" class="oauth-status" style="display: none;">
+                <div class="connected-info">
+                  <div class="connected-avatar">
+                    <img id="githubAvatar" src="" alt="GitHub avatar" class="avatar-img">
+                  </div>
+                  <div class="connected-details">
+                    <div class="connected-name" id="githubUsername">Loading...</div>
+                    <div class="connected-email">Connected via OAuth</div>
+                  </div>
+                </div>
+                <button id="githubSignOutBtn" class="btn btn-secondary btn-small">Sign Out</button>
+              </div>
+
+              <div class="developer-mode-toggle">
+                <label class="toggle-label">
+                  <input type="checkbox" id="developerModeToggle">
+                  <span>Developer Mode (use token instead)</span>
+                </label>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="githubDefaultRepo">Default Repository</label>
-              <input type="text" id="githubDefaultRepo" placeholder="owner/repo" class="input">
+
+            <!-- Developer Mode Section (Hidden by default) -->
+            <div id="githubDeveloperSection" style="display: none;">
+              <div class="form-group">
+                <label for="githubToken">Personal Access Token</label>
+                <input type="password" id="githubToken" placeholder="ghp_..." class="input">
+                <button id="testGitHubBtn" class="btn btn-small">Test Connection</button>
+              </div>
+              <p class="help-text">
+                <a href="https://github.com/settings/tokens/new?scopes=repo,project,read:user" target="_blank">Generate a token</a> with repo, project, and read:user scopes
+              </p>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>📝 Notion Integration</h3>
+
+            <!-- Notion OAuth Section -->
+            <div id="notionOAuthSection">
+              <div id="notionNotConnected" class="oauth-status">
+                <p class="help-text">Connect your Notion workspace to save notes directly to pages</p>
+                <button id="notionSignInBtn" class="btn btn-primary btn-oauth">
+                  <svg class="oauth-icon" viewBox="0 0 100 100" width="20" height="20" fill="currentColor">
+                    <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"/>
+                  </svg>
+                  Sign in with Notion
+                </button>
+              </div>
+
+              <div id="notionConnected" class="oauth-status" style="display: none;">
+                <div class="connected-info">
+                  <div class="connected-avatar-container">
+                    <div class="connected-icon" id="notionWorkspaceIcon">📝</div>
+                  </div>
+                  <div class="connected-details">
+                    <div class="connected-name" id="notionWorkspaceName">Loading...</div>
+                    <div class="connected-email">Connected via OAuth</div>
+                  </div>
+                </div>
+                <button id="notionSignOutBtn" class="btn btn-secondary btn-small">Sign Out</button>
+              </div>
             </div>
           </div>
 
@@ -209,6 +415,34 @@
 
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
+
+    <!-- History Detail Modal -->
+    <div id="historyDetailModal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Note Details</h3>
+          <button id="closeModalBtn" class="btn-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-section">
+            <label>Transcription:</label>
+            <div id="modalTranscription" class="transcription-display"></div>
+          </div>
+          <div class="detail-section">
+            <label>Sent to:</label>
+            <div id="modalDestination"></div>
+          </div>
+          <div class="detail-section" id="modalLinkSection" style="display: none;">
+            <label>Link:</label>
+            <a id="modalLink" href="#" target="_blank" class="external-link">View on GitHub →</a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeModalBtnFooter" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 
