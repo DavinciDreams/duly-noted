@@ -60,13 +60,20 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 
 ## 🚀 Quick Start
 
-### Installation (Development)
+### Installation
 
-1. Clone or download this repository
+**From Chrome Web Store (Recommended):**
+1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link coming soon)
+2. Click "Add to Chrome"
+3. Confirm the permissions
+4. Pin the extension to your toolbar
+
+**For Development:**
+1. Clone this repository
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable "Developer mode" (toggle in top-right)
 4. Click "Load unpacked"
-5. Select the `voice starter` directory
+5. Select this directory
 6. Pin the extension to your toolbar
 
 ### First Run
@@ -154,14 +161,14 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 ### Project Structure
 
 ```
-voice starter/
+duly-noted/
 ├── manifest.json              # Extension configuration (Manifest V3)
 ├── .env.example              # OAuth credentials template
 ├── package.json              # Dependencies
 ├── scripts/
 │   └── build-config.js       # Runtime config generator
-├── icons/                    # Extension icons
-├── assets/                   # Audio files and media
+├── icons/                    # Extension icons (16x16, 48x48, 128x128)
+├── assets/                   # Screenshots and logo
 └── src/
     ├── service-worker/
     │   └── service-worker.js # Background service worker
@@ -189,12 +196,18 @@ voice starter/
 
 ### Building from Source
 
-1. Clone the repository
-2. Copy `.env.example` to `.env`
-3. Add your OAuth credentials (optional for development)
-4. Run `npm install`
-5. Run `npm run build:config` to generate runtime config
-6. Load the extension in Chrome
+**Prerequisites:**
+- Node.js and npm installed
+- Chrome browser
+
+**Steps:**
+1. Clone the repository: `git clone https://github.com/DavinciDreams/duly-noted.git`
+2. Navigate to the directory: `cd duly-noted`
+3. Copy `.env.example` to `.env`
+4. Add your OAuth credentials (see below)
+5. Install dependencies: `npm install`
+6. Generate runtime config: `npm run build:config`
+7. Load the extension in Chrome (see Installation for Development above)
 
 ### OAuth Credentials Setup
 
