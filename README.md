@@ -7,20 +7,24 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 📸 Screenshots
+## 📸 Screenshots & Features
 
-### Main Recording Interface
-![History View](assets/Screenshot%202026-02-14%20063750.png)
-*Real-time voice transcription*
+<div align="center">
+<img src="assets/Screenshot%202026-02-14%20063750.png" width="45%" />
+<img src="assets/Screenshot%202026-02-14%20063601.png" width="45%" />
+</div>
+
+<div>
+<div style="display: inline-block; width: 48%; vertical-align: top;">
+
 ### 🎙️ Voice Recording & Transcription
 - **Real-time transcription** using Web Speech API
 - **Editable transcripts** - fix any errors before sending
 - **Visual feedback** with live recording timer
 - **High accuracy** speech-to-text conversion
 
-### History View
-![Notion Integration](assets/Screenshot%202026-02-14%20063601.png)
-*Track all your notes with clickable links to their destinations*
+</div>
+<div style="display: inline-block; width: 48%; vertical-align: top; margin-left: 3%;">
 
 ### 📜 History & Organization
 - **Recent notes** preview in sidebar
@@ -28,6 +32,9 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 - **Click to open** - direct links to GitHub/Notion
 - **Persistent storage** - never lose your notes
 - **Metadata tracking** - timestamps, destinations, and more
+
+</div>
+</div>
   
 ### Destination Chooser
 ![GitHub Integration](assets/Screenshot%202026-02-14%20063434.png)
