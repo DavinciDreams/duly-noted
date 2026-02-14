@@ -1059,9 +1059,9 @@ async function handleCreateIssue() {
 
     // Save to history
     const { generateUUID } = await import('../utils/helpers.js');
-    const { saveToHistory } = await import('../lib/storage.js');
+    const { addToHistory } = await import('../lib/storage.js');
 
-    await saveToHistory({
+    await addToHistory({
       id: generateUUID(),
       timestamp: Date.now(),
       transcription: currentTranscription,
