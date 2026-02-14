@@ -207,7 +207,7 @@ githubRepoSearch.addEventListener('input', handleRepoSearch);
 githubRepoSearch.addEventListener('focus', () => showRepoDropdown());
 githubRepoSearch.addEventListener('blur', () => {
   // Delay to allow click on repo item
-  setTimeout(() => hideRepoDropdown(), 200);
+  setTimeout(() => hideRepoDropdown(), 300);
 });
 
 // GitHub Project form
@@ -217,7 +217,7 @@ createProjectItemBtn.addEventListener('click', handleCreateProjectItem);
 githubProjectSearch.addEventListener('input', handleProjectSearch);
 githubProjectSearch.addEventListener('focus', () => showProjectDropdown());
 githubProjectSearch.addEventListener('blur', () => {
-  setTimeout(() => hideProjectDropdown(), 200);
+  setTimeout(() => hideProjectDropdown(), 300);
 });
 
 // Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
@@ -1010,32 +1010,47 @@ async function renderRepoList(query = '') {
     ? GitHubService.searchRepositories(query, repositories)
     : repositories;
 
-  // Render recently used section
+  // If we have recently used AND no search query, show them
   if (recentRepos.length > 0 && !query) {
+    recentReposList.parentElement.style.display = 'block';
     recentReposList.innerHTML = recentRepos.map(repo =>
       createRepoItem(repo.fullName, repo.description, true)
     ).join('');
   } else {
-    recentReposList.innerHTML = '<div class="repo-empty">No recently used repos</div>';
+    // Hide recently used section if empty or searching
+    recentReposList.parentElement.style.display = 'none';
   }
 
-  // Render all repos (excluding recently used to avoid duplicates)
-  const nonRecentRepos = filteredRepos.filter(repo =>
-    !recentRepoFullNames.includes(repo.full_name)
-  );
+  // Always show "All Repositories" section with available repos
+  const reposToShow = query
+    ? filteredRepos
+    : filteredRepos.filter(repo => !recentRepoFullNames.includes(repo.full_name));
 
-  if (nonRecentRepos.length > 0) {
-    allReposList.innerHTML = nonRecentRepos
+  // Update section title
+  const allReposSection = allReposList.parentElement;
+  const sectionTitle = allReposSection.querySelector('.dropdown-section-title');
+  sectionTitle.textContent = query ? 'Search Results' : (recentRepos.length > 0 ? 'All Repositories' : 'Your Repositories');
+
+  if (reposToShow.length > 0) {
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = reposToShow
       .slice(0, 20) // Limit to 20 results
       .map(repo => createRepoItem(repo.full_name, repo.description, false))
       .join('');
+  } else if (repositories.length === 0) {
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = '<div class="repo-empty">No repositories found. Create one on GitHub first.</div>';
   } else {
-    allReposList.innerHTML = '<div class="repo-empty">No repositories found</div>';
+    allReposSection.style.display = 'block';
+    allReposList.innerHTML = '<div class="repo-empty">No matching repositories</div>';
   }
 
-  // Add click handlers
+  // Add click handlers (use mousedown to fire before blur)
   document.querySelectorAll('.repo-item').forEach(item => {
-    item.addEventListener('click', handleRepoSelected);
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // Prevent input blur
+      handleRepoSelected(e);
+    });
   });
 }
 
@@ -1253,32 +1268,47 @@ async function renderProjectList(query = '') {
     ? GitHubService.searchProjects(query, projects)
     : projects;
 
-  // Render recently used section
+  // If we have recently used AND no search query, show them
   if (recentProjects.length > 0 && !query) {
+    recentProjectsList.parentElement.style.display = 'block';
     recentProjectsList.innerHTML = recentProjects.map(project =>
       createProjectItem(project.id, project.title, project.description, true)
     ).join('');
   } else {
-    recentProjectsList.innerHTML = '<div class="repo-empty">No recently used projects</div>';
+    // Hide recently used section if empty or searching
+    recentProjectsList.parentElement.style.display = 'none';
   }
 
-  // Render all projects (excluding recently used)
-  const nonRecentProjects = filteredProjects.filter(project =>
-    !recentProjectIds.includes(project.id)
-  );
+  // Always show "All Projects" section with available projects
+  const projectsToShow = query
+    ? filteredProjects
+    : filteredProjects.filter(project => !recentProjectIds.includes(project.id));
 
-  if (nonRecentProjects.length > 0) {
-    allProjectsList.innerHTML = nonRecentProjects
+  // Update section title
+  const allProjectsSection = allProjectsList.parentElement;
+  const sectionTitle = allProjectsSection.querySelector('.dropdown-section-title');
+  sectionTitle.textContent = query ? 'Search Results' : (recentProjects.length > 0 ? 'All Projects' : 'Your Projects');
+
+  if (projectsToShow.length > 0) {
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = projectsToShow
       .slice(0, 20)
       .map(project => createProjectItem(project.id, project.title, project.description, false))
       .join('');
+  } else if (projects.length === 0) {
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = '<div class="repo-empty">No projects found. Create one on GitHub first.</div>';
   } else {
-    allProjectsList.innerHTML = '<div class="repo-empty">No projects found</div>';
+    allProjectsSection.style.display = 'block';
+    allProjectsList.innerHTML = '<div class="repo-empty">No matching projects</div>';
   }
 
-  // Add click handlers
+  // Add click handlers (use mousedown to fire before blur)
   document.querySelectorAll('.project-item').forEach(item => {
-    item.addEventListener('click', handleProjectSelected);
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // Prevent input blur
+      handleProjectSelected(e);
+    });
   });
 }
 
