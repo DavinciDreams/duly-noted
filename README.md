@@ -7,13 +7,10 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.0.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 📸 Screenshots & Features
+## ✨ Integration Features
 
 <table>
 <tr>
-<td width="50%">
-<img src="assets/Screenshot%202026-02-14%20063750.png" width="100%" />
-</td>
 <td width="50%">
 
 ### 🎙️ Voice Recording & Transcription
@@ -22,11 +19,10 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 - **Visual feedback** with live recording timer
 - **High accuracy** speech-to-text conversion
 
-</td>
-</tr>
-<tr>
-<td width="50%">
-<img src="assets/Screenshot%202026-02-14%20063601.png" width="100%" />
+<p align="center">
+<img src="assets/Screenshot%202026-02-14%20063750.png" width="70%" />
+</p>
+
 </td>
 <td width="50%">
 
@@ -36,6 +32,10 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 - **Click to open** - direct links to GitHub/Notion
 - **Persistent storage** - never lose your notes
 - **Metadata tracking** - timestamps, destinations, and more
+
+<p align="center">
+<img src="assets/Screenshot%202026-02-14%20063601.png" width="70%" />
+</p>
 
 </td>
 </tr>
