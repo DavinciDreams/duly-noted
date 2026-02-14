@@ -4,17 +4,7 @@
  */
 
 import { OAuthService } from './oauth-service.js';
-
-// GitHub OAuth Configuration
-// NOTE: In production, these should be environment variables or fetched from a secure backend
-const GITHUB_CONFIG = {
-  clientId: 'YOUR_GITHUB_CLIENT_ID', // TODO: Replace with actual client ID
-  clientSecret: 'YOUR_GITHUB_CLIENT_SECRET', // TODO: Replace with actual client secret
-  authUrl: 'https://github.com/login/oauth/authorize',
-  tokenUrl: 'https://github.com/login/oauth/access_token',
-  apiUrl: 'https://api.github.com',
-  scopes: ['repo', 'project', 'read:user']
-};
+import { GITHUB_OAUTH_CONFIG as GITHUB_CONFIG, validateOAuthConfig } from '../config/oauth-config.js';
 
 export class GitHubOAuth {
   /**
@@ -32,6 +22,11 @@ export class GitHubOAuth {
    */
   static async authorize() {
     try {
+      // Validate OAuth configuration
+      if (!validateOAuthConfig('github')) {
+        throw new Error('GitHub OAuth is not configured. Please add credentials to .env file.');
+      }
+
       // Generate and store state for CSRF protection
       const state = OAuthService.generateState();
       await chrome.storage.local.set({ githubOAuthState: state });

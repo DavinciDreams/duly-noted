@@ -23,6 +23,7 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+src/config/runtime-config.json
 
 # Extension artifacts
 *.crx
