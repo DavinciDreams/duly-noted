@@ -472,6 +472,8 @@ async function handleDestinationSelected(destination) {
     await showGitHubIssueForm();
   } else if (destination === 'github-project') {
     await showGitHubProjectForm();
+  } else if (destination === 'notion') {
+    await handleNotionDestination();
   } else {
     showToast(`${destination} integration coming in later phases`, 'warning');
   }
@@ -798,6 +800,167 @@ async function handleNotionSignOut() {
   } catch (error) {
     console.error('[Side Panel] Notion sign-out error:', error);
     showToast(`Failed to sign out: ${error.message}`, 'error');
+  }
+}
+
+// ============================================================================
+// Notion Integration Functions
+// ============================================================================
+
+async function handleNotionDestination() {
+  try {
+    console.log('[Side Panel] Handling Notion destination');
+
+    // Get list of databases and pages from Notion
+    const databases = await NotionService.getDatabases();
+    const pages = await NotionService.searchPages();
+
+    if (databases.length === 0 && pages.length === 0) {
+      showToast('No databases or pages found in your Notion workspace. Please create a database or page first.', 'error');
+      return;
+    }
+
+    // For MVP: Simple flow - create a new page in the first available database
+    // TODO: Add UI for database/page picker in future iteration
+    let parent;
+    let parentName;
+
+    if (databases.length > 0) {
+      // Use first database
+      parent = { database_id: databases[0].id };
+      parentName = databases[0].title?.[0]?.plain_text || 'Database';
+    } else {
+      // Use first page
+      parent = { page_id: pages[0].id };
+      parentName = pages[0].properties?.title?.title?.[0]?.plain_text || 'Page';
+    }
+
+    await sendToNotion(parent, parentName);
+  } catch (error) {
+    console.error('[Side Panel] Error handling Notion destination:', error);
+    showToast(`Failed to send to Notion: ${error.message}`, 'error');
+  }
+}
+
+async function sendToNotion(parent, parentName) {
+  try {
+    console.log('[Side Panel] Sending note to Notion');
+
+    // Generate title from first line of transcription
+    const lines = currentTranscription.trim().split('\n');
+    const title = truncateText(lines[0], 100) || 'Voice Note';
+    const content = currentTranscription;
+
+    let createdPage;
+
+    if (parent.database_id) {
+      // Create database entry with content
+      const properties = {
+        Name: {
+          title: [
+            {
+              text: {
+                content: title
+              }
+            }
+          ]
+        }
+      };
+
+      // Add content as child blocks
+      const children = [
+        {
+          object: 'block',
+          type: 'paragraph',
+          paragraph: {
+            rich_text: [
+              {
+                type: 'text',
+                text: {
+                  content: content
+                }
+              }
+            ]
+          }
+        }
+      ];
+
+      createdPage = await NotionService.createDatabaseEntry(parent.database_id, properties, children);
+    } else {
+      // Create child page
+      const pageData = {
+        parent: parent,
+        properties: {
+          title: {
+            title: [
+              {
+                text: {
+                  content: title
+                }
+              }
+            ]
+          }
+        },
+        children: [
+          {
+            object: 'block',
+            type: 'paragraph',
+            paragraph: {
+              rich_text: [
+                {
+                  type: 'text',
+                  text: {
+                    content: content
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      };
+
+      createdPage = await NotionService.createPage(pageData);
+    }
+
+    console.log('[Side Panel] Notion page created:', createdPage);
+
+    // Save to history
+    const { generateUUID } = await import('../utils/helpers.js');
+    const { addToHistory } = await import('../lib/storage.js');
+
+    const historyItem = {
+      id: generateUUID(),
+      timestamp: Date.now(),
+      transcription: content,
+      destination: 'notion',
+      status: 'success',
+      artifactUrl: createdPage.url,
+      artifactTitle: title,
+      metadata: {
+        notion: {
+          pageId: createdPage.id,
+          parentName: parentName
+        }
+      }
+    };
+
+    await addToHistory(historyItem);
+
+    // Show success message
+    showToast(`Note sent to Notion (${parentName})!`, 'success');
+
+    // Reset recording state
+    currentTranscription = '';
+    transcriptionText.textContent = '';
+
+    // Return to recording screen
+    showScreen(screens.RECORDING);
+
+    // Reload recent notes
+    await loadRecentNotes();
+  } catch (error) {
+    console.error('[Side Panel] Error sending to Notion:', error);
+    throw error;
   }
 }
 
