@@ -8,6 +8,8 @@ import { formatRelativeTime, getDestinationIcon, truncateText } from '../utils/h
 import { TranscriptionService } from '../lib/transcription-service.js';
 import { GitHubOAuth } from '../lib/github-oauth.js';
 import { GitHubService } from '../lib/github-service.js';
+import { NotionOAuth } from '../lib/notion-oauth.js';
+import { NotionService } from '../lib/notion-service.js';
 
 console.log('[Side Panel] Loading...');
 
@@ -83,7 +85,7 @@ const destinationTranscriptionPreview = document.getElementById('destinationTran
 const githubTokenInput = document.getElementById('githubToken');
 const maxDurationInput = document.getElementById('maxDuration');
 
-// OAuth elements
+// GitHub OAuth elements
 const githubOAuthSection = document.getElementById('githubOAuthSection');
 const githubNotConnected = document.getElementById('githubNotConnected');
 const githubConnected = document.getElementById('githubConnected');
@@ -93,6 +95,15 @@ const githubUsername = document.getElementById('githubUsername');
 const githubAvatar = document.getElementById('githubAvatar');
 const developerModeToggle = document.getElementById('developerModeToggle');
 const githubDeveloperSection = document.getElementById('githubDeveloperSection');
+
+// Notion OAuth elements
+const notionOAuthSection = document.getElementById('notionOAuthSection');
+const notionNotConnected = document.getElementById('notionNotConnected');
+const notionConnected = document.getElementById('notionConnected');
+const notionSignInBtn = document.getElementById('notionSignInBtn');
+const notionSignOutBtn = document.getElementById('notionSignOutBtn');
+const notionWorkspaceName = document.getElementById('notionWorkspaceName');
+const notionWorkspaceIcon = document.getElementById('notionWorkspaceIcon');
 
 // ============================================================================
 // Event Listeners
@@ -145,6 +156,10 @@ resetSettingsBtn.addEventListener('click', handleResetSettings);
 githubSignInBtn.addEventListener('click', handleGitHubSignIn);
 githubSignOutBtn.addEventListener('click', handleGitHubSignOut);
 developerModeToggle.addEventListener('change', handleDeveloperModeToggle);
+
+// Notion OAuth
+notionSignInBtn.addEventListener('click', handleNotionSignIn);
+notionSignOutBtn.addEventListener('click', handleNotionSignOut);
 
 // Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
 // No need for message listeners
@@ -368,10 +383,12 @@ async function showDestinationChooser() {
 
   // Enable/disable destination options based on OAuth authentication
   const isGitHubAuthenticated = await GitHubOAuth.isAuthenticated();
+  const isNotionAuthenticated = await NotionOAuth.isAuthenticated();
   const settings = await getSettings();
 
   document.querySelector('[data-destination="github-issue"]').disabled = !isGitHubAuthenticated;
   document.querySelector('[data-destination="github-project"]').disabled = !isGitHubAuthenticated;
+  document.querySelector('[data-destination="notion"]').disabled = !isNotionAuthenticated;
   document.querySelector('[data-destination="onenote"]').disabled = !settings.onenoteToken;
 
   showScreen(screens.DESTINATION);
@@ -536,8 +553,9 @@ async function loadSettings() {
     githubTokenInput.value = settings.githubToken || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
 
-    // Update GitHub OAuth UI
+    // Update OAuth UIs
     await updateGitHubConnectionUI();
+    await updateNotionConnectionUI();
   } catch (error) {
     console.error('[Side Panel] Error loading settings:', error);
     showToast('Error loading settings', 'error');
@@ -661,6 +679,75 @@ function handleDeveloperModeToggle(e) {
   }
 }
 
+// ============================================================================
+// Notion OAuth Functions
+// ============================================================================
+
+async function handleNotionSignIn() {
+  try {
+    console.log('[Side Panel] Initiating Notion OAuth flow');
+    notionSignInBtn.disabled = true;
+    notionSignInBtn.textContent = 'Opening Notion...';
+
+    const result = await NotionOAuth.authorize();
+    await handleNotionAuthSuccess(result.workspace.name);
+  } catch (error) {
+    console.error('[Side Panel] Notion sign-in error:', error);
+    showToast(`Failed to sign in: ${error.message}`, 'error');
+  } finally {
+    notionSignInBtn.disabled = false;
+    notionSignInBtn.innerHTML = `
+      <svg class="oauth-icon" viewBox="0 0 100 100" width="20" height="20" fill="currentColor">
+        <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"/>
+      </svg>
+      Sign in with Notion
+    `;
+  }
+}
+
+async function handleNotionAuthSuccess(workspaceName) {
+  console.log('[Side Panel] Notion auth successful:', workspaceName);
+  await updateNotionConnectionUI();
+  updateDestinationOptions();
+  showToast(`Connected to Notion workspace: ${workspaceName}`, 'success');
+}
+
+async function handleNotionSignOut() {
+  if (!confirm('Are you sure you want to sign out of Notion?')) {
+    return;
+  }
+
+  try {
+    await NotionOAuth.signOut();
+    await updateNotionConnectionUI();
+    updateDestinationOptions();
+    showToast('Signed out of Notion', 'success');
+  } catch (error) {
+    console.error('[Side Panel] Notion sign-out error:', error);
+    showToast(`Failed to sign out: ${error.message}`, 'error');
+  }
+}
+
+async function updateNotionConnectionUI() {
+  const isAuth = await NotionOAuth.isAuthenticated();
+
+  if (isAuth) {
+    // Get workspace info from storage
+    const workspaceInfo = await NotionOAuth.getWorkspaceInfo();
+
+    if (workspaceInfo) {
+      notionWorkspaceName.textContent = workspaceInfo.name;
+      notionWorkspaceIcon.textContent = workspaceInfo.icon || '📝';
+    }
+
+    notionNotConnected.style.display = 'none';
+    notionConnected.style.display = 'block';
+  } else {
+    notionNotConnected.style.display = 'block';
+    notionConnected.style.display = 'none';
+  }
+}
+
 async function updateGitHubConnectionUI() {
   const isAuth = await GitHubOAuth.isAuthenticated();
 
@@ -691,8 +778,7 @@ async function updateGitHubConnectionUI() {
 }
 
 function updateDestinationOptions() {
-  // This will be called after settings change to enable/disable destination buttons
-  // For now, we'll check GitHub auth status
+  // Update GitHub destination buttons
   GitHubOAuth.isAuthenticated().then(isAuth => {
     const githubIssueBtn = document.querySelector('[data-destination="github-issue"]');
     const githubProjectBtn = document.querySelector('[data-destination="github-project"]');
@@ -729,6 +815,27 @@ function updateDestinationOptions() {
       }
     }
   });
+
+  // Update Notion destination button
+  NotionOAuth.isAuthenticated().then(isAuth => {
+    const notionBtn = document.querySelector('[data-destination="notion"]');
+
+    if (notionBtn) {
+      if (isAuth) {
+        notionBtn.disabled = false;
+        const badge = notionBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        notionBtn.disabled = true;
+        if (!notionBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          notionBtn.appendChild(badge);
+        }
+      }
+    }
+  });
 }
 
 // ============================================================================
@@ -758,6 +865,10 @@ async function init() {
 
   // Load initial data
   await loadRecentNotes();
+
+  // Update OAuth connection UIs
+  await updateGitHubConnectionUI();
+  await updateNotionConnectionUI();
 
   // Update destination button states based on auth
   updateDestinationOptions();
