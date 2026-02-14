@@ -10,32 +10,40 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 ## 📸 Screenshots
 
 ### Main Recording Interface
-![Recording Interface](assets/Screenshot%202026-02-14%20062435.png)
-*Real-time voice transcription with editable text*
-
-### Destination Chooser
-![Destination Chooser](assets/Screenshot%202026-02-14%20063151.png)
-*Choose where to send your note - GitHub, Notion, or save as draft*
-
-### GitHub Integration
-![GitHub Integration](assets/Screenshot%202026-02-14%20063434.png)
-*Create GitHub Issues with repository selection*
-
-### Notion Integration
-![Notion Integration](assets/Screenshot%202026-02-14%20063601.png)
-*Send notes to Notion databases or pages*
-
-### History View
 ![History View](assets/Screenshot%202026-02-14%20063750.png)
-*Track all your notes with clickable links to their destinations*
-
-## ✨ Features
-
+*Real-time voice transcription*
 ### 🎙️ Voice Recording & Transcription
 - **Real-time transcription** using Web Speech API
 - **Editable transcripts** - fix any errors before sending
 - **Visual feedback** with live recording timer
 - **High accuracy** speech-to-text conversion
+
+### History View
+![Notion Integration](assets/Screenshot%202026-02-14%20063601.png)
+*Track all your notes with clickable links to their destinations*
+
+### 📜 History & Organization
+- **Recent notes** preview in sidebar
+- **Full history view** with filtering
+- **Click to open** - direct links to GitHub/Notion
+- **Persistent storage** - never lose your notes
+- **Metadata tracking** - timestamps, destinations, and more
+  
+### Destination Chooser
+![GitHub Integration](assets/Screenshot%202026-02-14%20063434.png)
+*Choose where to send your note - GitHub, Notion, or save as draft*
+
+### GitHub Integration
+![Destination Chooser](assets/Screenshot%202026-02-14%20063151.png)
+*Create GitHub Issues with repository selection*
+
+### Notion Integration
+![Recording Interface](assets/Screenshot%202026-02-14%20062435.png)
+*Send notes to Notion databases or pages*
+
+
+
+## ✨ Features
 
 ### 🐙 GitHub Integration
 - **Create GitHub Issues** directly from voice notes
@@ -50,13 +58,6 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 - **Auto-formatting** - first line becomes title
 - **Smart detection** - finds all accessible databases and pages
 - **Clickable history** - links open Notion pages in new tabs
-
-### 📜 History & Organization
-- **Recent notes** preview in sidebar
-- **Full history view** with filtering
-- **Click to open** - direct links to GitHub/Notion
-- **Persistent storage** - never lose your notes
-- **Metadata tracking** - timestamps, destinations, and more
 
 ## 🚀 Quick Start
 
