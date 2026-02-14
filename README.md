@@ -1,71 +1,131 @@
 # Duly Noted 🎤
 
-**Capture voice notes with real-time transcription. Never lose a great idea again.**
+**Capture voice notes with real-time transcription. Send to GitHub Issues, GitHub Projects, or Notion. Never lose a great idea again.**
 
-A Chrome extension that lets you quickly capture voice notes using Web Speech API for real-time transcription. Save as drafts or send to GitHub Issues, GitHub Projects, OneNote, or Notion.
+A Chrome extension that lets you quickly capture voice notes using Web Speech API for real-time transcription. Instantly send notes to your favorite productivity tools or save them locally.
 
-## 🚀 Quick Start (Development)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.0.0)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-### 1. Load the Extension in Chrome
+## ✨ Features
 
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top-right corner)
-3. Click "Load unpacked"
-4. Select the `voice starter` directory (this folder)
-5. The extension should now appear in your extensions list
+### 🎙️ Voice Recording & Transcription
+- **Real-time transcription** using Web Speech API
+- **Editable transcripts** - fix any errors before sending
+- **Visual feedback** with live recording timer
+- **High accuracy** speech-to-text conversion
 
-### 2. Pin the Extension
+### 🐙 GitHub Integration
+- **Create GitHub Issues** directly from voice notes
+- **Add to GitHub Projects** with custom fields
+- **OAuth authentication** - secure, no tokens to manage
+- **Repository selection** - choose from all your repos
+- **Clickable history** - links open issues/projects in new tabs
 
-1. Click the puzzle piece icon in Chrome's toolbar
-2. Find "Voice Starter" and click the pin icon
-3. The extension icon will now appear in your toolbar
+### 📓 Notion Integration
+- **Send to Notion databases** or create child pages
+- **OAuth authentication** - secure workspace connection
+- **Auto-formatting** - first line becomes title
+- **Smart detection** - finds all accessible databases and pages
+- **Clickable history** - links open Notion pages in new tabs
 
-### 3. Open the Side Panel
+### 📜 History & Organization
+- **Recent notes** preview in sidebar
+- **Full history view** with filtering
+- **Click to open** - direct links to GitHub/Notion
+- **Persistent storage** - never lose your notes
+- **Metadata tracking** - timestamps, destinations, and more
 
-**Method 1:** Click the Voice Starter icon in your toolbar
+## 🚀 Quick Start
 
-**Method 2:** Use keyboard shortcut `Alt+Shift+V`
+### Installation (Development)
 
-### 4. Test Basic Functionality
+1. Clone or download this repository
+2. Open Chrome and go to `chrome://extensions/`
+3. Enable "Developer mode" (toggle in top-right)
+4. Click "Load unpacked"
+5. Select the `voice starter` directory
+6. Pin the extension to your toolbar
 
-1. Click "Start Recording" button
+### First Run
+
+1. Click the Duly Noted icon in your toolbar (or press `Alt+Shift+V`)
 2. Grant microphone permission when prompted
-3. Speak a test note (e.g., "This is a test note")
-4. Click "Stop Recording"
-5. Choose "Save as Draft" destination
-6. Verify the draft appears in "Recent Notes"
+3. Click "Start Recording" and speak your first note
+4. Click "Stop & Send" when done
+5. Choose "Save as Draft" to save locally
 
-## 📋 Current Status (Phase 1 Complete)
+### Setting up GitHub Integration
 
-### ✅ Working Features
+1. Click the Settings icon (⚙️) in the extension
+2. Scroll to "🐙 GitHub Integration"
+3. Click "Sign in with GitHub"
+4. Authorize the application
+5. You can now send notes to GitHub Issues and Projects!
 
-- ✅ Extension loads in Chrome
-- ✅ Side panel opens and displays UI
-- ✅ Screen routing (Recording, Destination Chooser, History, Settings)
-- ✅ Microphone permission request
-- ✅ Basic recording start/stop
-- ✅ Draft storage in chrome.storage.local
-- ✅ Recent notes display
-- ✅ Settings persistence
+**Note:** Your GitHub OAuth credentials are stored securely in Chrome's storage and never shared.
 
-### ⏳ Coming Soon
+### Setting up Notion Integration
 
-- **Phase 2 (Week 2):** Real-time transcription with Web Speech API
-- **Phase 3 (Week 3):** Draft editing and promotion
-- **Phase 4 (Week 4):** GitHub Issues integration
-- **Phase 5 (Week 5):** GitHub Projects integration
-- **Phase 6 (Week 6):** OneNote integration
+1. Click the Settings icon (⚙️) in the extension
+2. Scroll to "📝 Notion Integration"
+3. Click "Sign in with Notion"
+4. Select your workspace and authorize
+5. Grant access to specific databases/pages in Notion
+6. You can now send notes to Notion!
 
-## 🐛 Known Issues
+**Note:** You need to grant the integration access to pages/databases in Notion:
+- Open a page in Notion → "..." menu → "Add connections" → Select "Duly Noted"
 
-1. **No Icons:** Extension uses Chrome's default icon (placeholder)
-   - Solution: Add icon files to `icons/` directory (see `icons/README.md`)
+## 📋 Usage
 
-2. **Transcription Not Working:** Currently shows "Test transcription text" placeholder
-   - Solution: Will be implemented in Phase 2 with Web Speech API
+### Recording a Voice Note
 
-3. **Recording Timer Doesn't Show Duration:** Timer UI visible but recording doesn't save audio yet
-   - Solution: Full MediaRecorder integration coming in Phase 2
+1. Click "Start Recording" (or use keyboard shortcut)
+2. Speak your note - transcription appears in real-time
+3. Click "Edit" to manually fix any transcription errors
+4. Click "Stop & Send" when finished
+
+### Sending to GitHub Issues
+
+1. After recording, click the "GitHub Issue" button
+2. Select a repository from the dropdown
+3. Edit the title and body if needed
+4. Click "Create Issue"
+5. Your note is now a GitHub Issue with a clickable link in history!
+
+### Sending to GitHub Projects
+
+1. After recording, click the "GitHub Project" button
+2. Select a repository
+3. Select a project from that repository
+4. Edit the title and body if needed
+5. Click "Add to Project"
+6. Your note is now a project item!
+
+### Sending to Notion
+
+1. After recording, click the "Notion" button
+2. Extension automatically finds your first database or page
+3. First line becomes the page title
+4. Full transcription becomes the page content
+5. Click the note in history to open it in Notion!
+
+## ⚙️ Settings
+
+### General Settings
+- **Maximum Recording Duration** - Set recording time limit (default: 5 minutes)
+
+### GitHub Settings
+- **OAuth Status** - View connection status and workspace
+- **Sign Out** - Disconnect GitHub integration
+
+### Notion Settings
+- **OAuth Status** - View connection status and workspace
+- **Sign Out** - Disconnect Notion integration
+
+### Advanced Settings
+- **Clear All Data** - Reset extension (deletes all notes and settings)
 
 ## 🛠️ Development
 
@@ -73,161 +133,181 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 
 ```
 voice starter/
-├── manifest.json              # Extension configuration
-├── icons/                     # Extension icons (TODO: add images)
-├── src/
-│   ├── service-worker/
-│   │   └── service-worker.js  # Background service worker
-│   ├── offscreen/
-│   │   ├── offscreen.html     # Hidden page for MediaRecorder
-│   │   └── offscreen.js       # Audio recording logic
-│   ├── sidepanel/
-│   │   ├── sidepanel.html     # Main UI
-│   │   ├── sidepanel.css      # Styles
-│   │   └── sidepanel.js       # UI controller
-│   ├── lib/
-│   │   └── storage.js         # Chrome storage wrappers
-│   └── utils/
-│       └── helpers.js         # Utility functions
-└── README.md                  # This file
+├── manifest.json              # Extension configuration (Manifest V3)
+├── .env.example              # OAuth credentials template
+├── package.json              # Dependencies
+├── scripts/
+│   └── build-config.js       # Runtime config generator
+├── icons/                    # Extension icons
+├── assets/                   # Audio files and media
+└── src/
+    ├── service-worker/
+    │   └── service-worker.js # Background service worker
+    ├── offscreen/
+    │   ├── offscreen.html    # Web Speech API context
+    │   └── offscreen.js      # Speech recognition handler
+    ├── sidepanel/
+    │   ├── sidepanel.html    # Main UI
+    │   ├── sidepanel.css     # Styles
+    │   └── sidepanel.js      # UI controller
+    ├── config/
+    │   ├── oauth-config.js   # OAuth configuration
+    │   └── runtime-config.js # Generated from .env
+    ├── lib/
+    │   ├── oauth-service.js       # OAuth core logic
+    │   ├── github-oauth.js        # GitHub OAuth implementation
+    │   ├── github-service.js      # GitHub API wrapper
+    │   ├── notion-oauth.js        # Notion OAuth implementation
+    │   ├── notion-service.js      # Notion API wrapper
+    │   ├── transcription-service.js # Web Speech API wrapper
+    │   └── storage.js             # Chrome storage wrappers
+    └── utils/
+        └── helpers.js        # Utility functions
 ```
+
+### Building from Source
+
+1. Clone the repository
+2. Copy `.env.example` to `.env`
+3. Add your OAuth credentials (optional for development)
+4. Run `npm install`
+5. Run `npm run build:config` to generate runtime config
+6. Load the extension in Chrome
+
+### OAuth Credentials Setup
+
+For GitHub:
+1. Create OAuth App at https://github.com/settings/developers
+2. Set redirect URI: `https://YOUR_EXTENSION_ID.chromiumapp.org/`
+3. Add Client ID and Secret to `.env`
+
+For Notion:
+1. Create integration at https://www.notion.so/my-integrations
+2. Set redirect URI: `https://YOUR_EXTENSION_ID.chromiumapp.org/`
+3. Add Client ID and Secret to `.env`
+
+**Note:** Extension ID can be found at `chrome://extensions/` after loading the unpacked extension.
 
 ### Debugging
 
-**View Service Worker Console:**
-1. Go to `chrome://extensions/`
-2. Find "Voice Starter"
-3. Click "service worker" link under "Inspect views"
+**Service Worker Console:**
+- Go to `chrome://extensions/`
+- Click "service worker" link under Duly Noted
+- Console shows background logs
 
-**View Side Panel Console:**
-1. Right-click inside the side panel
-2. Select "Inspect"
-3. Console tab shows side panel logs
+**Side Panel Console:**
+- Right-click inside the side panel
+- Select "Inspect"
+- Console shows UI logs
 
-**View Offscreen Document Console:**
-1. Go to `chrome://extensions/`
-2. Click "service worker" link
-3. In DevTools, go to Sources tab → File system → offscreen.html
-4. Set breakpoints or check console
-
-### Storage Inspection
-
-View stored data:
+**View Storage:**
 ```javascript
-// In any extension context (service worker, side panel, etc.)
+// In any extension context
 chrome.storage.local.get(null, (data) => console.log(data));
 ```
 
-Clear all storage:
+**Clear Storage:**
 ```javascript
 chrome.storage.local.clear();
 ```
 
-## 📝 Testing Checklist
+## 🐛 Troubleshooting
 
-### Basic Functionality
+### OAuth Not Working
 
-- [ ] Extension loads without errors
-- [ ] Side panel opens when clicking icon
-- [ ] Side panel opens with `Alt+Shift+V`
-- [ ] All screens accessible (Recording, History, Settings)
-- [ ] "Recent Notes" section visible
-- [ ] "View All History" button works
+**Issue:** "URI mismatch" error when signing in
 
-### Recording Flow (Placeholder)
+**Solution:**
+1. Check your extension ID at `chrome://extensions/`
+2. Update redirect URI in GitHub/Notion OAuth settings
+3. Reload the extension
+4. Try signing in again
 
-- [ ] Click "Start Recording" button
-- [ ] Microphone permission prompt appears
-- [ ] After granting permission, button changes to "Stop Recording"
-- [ ] Timer appears (00:00)
-- [ ] Transcription container appears
-- [ ] Click "Stop Recording"
-- [ ] Destination chooser screen appears
-- [ ] Transcription preview shows text
+**Note:** Extension ID changes when you reload an unpacked extension in a different directory.
 
-### Draft Storage
+### Notion Button Disabled
 
-- [ ] Click "Save as Draft" destination
-- [ ] Toast notification appears: "Draft saved!"
-- [ ] Returns to recording screen
-- [ ] Draft appears in "Recent Notes" section
-- [ ] Click on draft in recent notes
-- [ ] History screen opens
-- [ ] Draft appears with 💾 icon
+**Issue:** Notion button is grayed out
 
-### Settings
+**Solution:**
+1. Click Settings → Notion Integration
+2. Click "Sign in with Notion"
+3. Complete OAuth flow
+4. Grant integration access to pages/databases in Notion
 
-- [ ] Click settings icon (⚙️)
-- [ ] Settings screen opens
-- [ ] GitHub token field visible
-- [ ] Max duration field shows 300
-- [ ] Click "Save Settings"
-- [ ] Toast notification: "Settings saved!"
-- [ ] Click "Reset to Defaults"
-- [ ] Confirmation dialog appears
-- [ ] After reset, fields return to defaults
+### GitHub API Rate Limit
 
-## 🔍 Troubleshooting
+**Issue:** "API rate limit exceeded" error
 
-### Extension Won't Load
+**Solution:**
+- Wait an hour for rate limit to reset
+- Use OAuth (provides higher rate limits than anonymous)
 
-**Error:** "Manifest file is missing or unreadable"
-- **Solution:** Ensure you're selecting the `voice starter` folder, not a parent folder
-- **Check:** `manifest.json` should be in the root of the selected folder
+### No Transcription Appearing
 
-### Service Worker Errors
+**Issue:** Recording starts but no text appears
 
-**Error:** "Uncaught (in promise) Error: Could not establish connection"
-- **Solution:** Reload the extension from `chrome://extensions/`
-- **Check:** Service worker status (should show "active")
+**Solution:**
+1. Check microphone permission at `chrome://settings/content/microphone`
+2. Verify your browser supports Web Speech API (Chrome/Edge)
+3. Check internet connection (Web Speech API requires internet)
+4. Try speaking louder or closer to microphone
 
-### Microphone Permission Denied
+### Extension Crashes
 
-**Error:** Recording doesn't start
-- **Solution:** Grant microphone permission when prompted
-- **Check:** Chrome settings → Privacy → Site Settings → Microphone
+**Issue:** Extension stops working or crashes
 
-### Side Panel Blank
-
-**Error:** Side panel opens but shows blank page
-- **Solution:** Check console for JavaScript errors
-- **Check:** Right-click inside panel → Inspect → Console tab
-
-### Storage Not Persisting
-
-**Error:** Drafts disappear after reload
-- **Solution:** Check browser's storage quota
-- **Check:** `chrome://settings/content/all` → Storage
+**Solution:**
+1. Go to `chrome://extensions/`
+2. Click reload button for Duly Noted
+3. Check service worker console for errors
+4. Try clearing extension storage (Settings → Advanced → Clear All Data)
 
 ## 📚 Documentation
 
-- [PRD.md](PRD.md) - Full product requirements
-- [PRD-CHANGELOG.md](PRD-CHANGELOG.md) - Recent changes and rationale
-- [WORKFLOW-DIAGRAM.md](WORKFLOW-DIAGRAM.md) - User flow diagrams
+- [Setup Guide](SETUP-OAUTH.md) - Detailed OAuth setup instructions
+- [Notion Setup](NOTION-SETUP.md) - Notion integration guide
+- [Testing Guide](TESTING-NOTION.md) - Testing checklist
+- [PRD](PRD.md) - Product requirements
+- [Development Learnings](CHROME-EXTENSION-LEARNINGS.md) - Chrome extension tips
+
+## 🔒 Privacy & Security
+
+- **Local Storage:** All voice notes are stored locally in Chrome's storage
+- **No Cloud Recording:** Audio is processed in-browser only (Web Speech API)
+- **OAuth Tokens:** Stored securely in `chrome.storage.local`
+- **No Analytics:** We don't track your usage
+- **No Third-Party Servers:** Direct API calls to GitHub/Notion only
 
 ## 🤝 Contributing
 
-This is currently in active development (Phase 1 complete, Phase 2 starting).
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-Key files to understand:
-1. `manifest.json` - Extension config
-2. `src/service-worker/service-worker.js` - Background logic
-3. `src/sidepanel/sidepanel.js` - Main UI controller
-4. `src/lib/storage.js` - Data persistence
+### Development Guidelines
 
-## 📄 License
+1. Follow existing code style
+2. Test all changes thoroughly
+3. Update documentation if needed
+4. Commit messages should be clear and descriptive
 
-TBD
+## 📝 License
 
-## 🆘 Need Help?
+MIT License - see [LICENSE](LICENSE) file for details
 
-1. Check the console logs (service worker + side panel)
-2. Review the PRD for expected behavior
-3. Check the GitHub issues (coming soon)
-4. Contact the development team
+## 🙏 Acknowledgments
+
+- Built with [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)
+- Icons from [Heroicons](https://heroicons.com/)
+- GitHub API integration via [GitHub REST API](https://docs.github.com/en/rest)
+- Notion API integration via [Notion API](https://developers.notion.com/)
+
+## 📞 Support
+
+- **Issues:** [GitHub Issues](https://github.com/DavinciDreams/duly-noted/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/DavinciDreams/duly-noted/discussions)
 
 ---
 
-**Current Version:** 0.1.0 (Phase 1 - Foundation Complete)
+**Version:** 1.0.0 | **Released:** 2026-02-14
 
-**Last Updated:** 2026-02-13
+Made with ❤️ and Claude Code
