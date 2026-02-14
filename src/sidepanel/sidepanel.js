@@ -384,7 +384,9 @@ async function stopRecording() {
   try {
     // Stop transcription service
     if (transcriptionService) {
-      transcriptionService.stop();
+      if (transcriptionService.isListening()) {
+        transcriptionService.stop();
+      }
       transcriptionService.dispose();
       transcriptionService = null;
     }

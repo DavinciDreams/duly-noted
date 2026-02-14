@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Duly Noted",
   "description": "Capture voice notes with real-time transcription. Send to GitHub Issues, Projects, OneNote, or save as drafts. Never lose a great idea again.",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "icons": {
     "16": "icons/icon-16.png",
     "48": "icons/icon-48.png",
