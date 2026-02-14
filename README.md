@@ -55,7 +55,7 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 
 
 
-## ✨ Features
+## ✨ Integration Features
 
 ### 🐙 GitHub Integration
 - **Create GitHub Issues** directly from voice notes
