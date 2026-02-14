@@ -203,6 +203,71 @@
         </div>
       </div>
 
+      <!-- Screen: GitHub Project -->
+      <div id="githubProjectScreen" class="screen">
+        <div class="form-container">
+
+          <!-- Back Button -->
+          <button id="backFromGitHubProjectBtn" class="btn btn-text">
+            <span>← Back</span>
+          </button>
+
+          <h2>Add to GitHub Project</h2>
+
+          <!-- Project Picker -->
+          <div class="form-group">
+            <label for="githubProjectSearch">Project</label>
+            <div class="project-picker">
+              <input
+                type="text"
+                id="githubProjectSearch"
+                class="input"
+                placeholder="Search projects..."
+                autocomplete="off">
+              <div id="projectList" class="dropdown-list" style="display: none;">
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">Recently Used</div>
+                  <div id="recentProjectsList"></div>
+                </div>
+                <div class="dropdown-section">
+                  <div class="dropdown-section-title">All Projects</div>
+                  <div id="allProjectsList"></div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="selectedProjectId" value="">
+          </div>
+
+          <!-- Draft Issue Title -->
+          <div class="form-group">
+            <label for="projectItemTitle">Title</label>
+            <input
+              type="text"
+              id="projectItemTitle"
+              class="input"
+              placeholder="Brief description"
+              required>
+          </div>
+
+          <!-- Draft Issue Body -->
+          <div class="form-group">
+            <label for="projectItemBody">Description</label>
+            <textarea
+              id="projectItemBody"
+              class="textarea"
+              rows="6"
+              placeholder="Detailed description (supports Markdown)"></textarea>
+          </div>
+
+          <!-- Actions -->
+          <div class="form-actions">
+            <button id="createProjectItemBtn" class="btn btn-primary">Add to Project</button>
+            <button id="cancelProjectItemBtn" class="btn btn-secondary">Cancel</button>
+          </div>
+
+        </div>
+      </div>
+
       <!-- Screen: History -->
       <div id="historyScreen" class="screen">
         <div class="history-container">

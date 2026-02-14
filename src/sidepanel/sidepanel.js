@@ -25,6 +25,7 @@ const screens = {
   RECORDING: 'recordingScreen',
   DESTINATION: 'destinationScreen',
   GITHUB_ISSUE: 'githubIssueScreen',
+  GITHUB_PROJECT: 'githubProjectScreen',
   HISTORY: 'historyScreen',
   SETTINGS: 'settingsScreen',
 };
@@ -120,6 +121,18 @@ const issueLabels = document.getElementById('issueLabels');
 const createIssueBtn = document.getElementById('createIssueBtn');
 const cancelIssueBtn = document.getElementById('cancelIssueBtn');
 
+// GitHub Project form elements
+const backFromGitHubProjectBtn = document.getElementById('backFromGitHubProjectBtn');
+const githubProjectSearch = document.getElementById('githubProjectSearch');
+const projectList = document.getElementById('projectList');
+const recentProjectsList = document.getElementById('recentProjectsList');
+const allProjectsList = document.getElementById('allProjectsList');
+const selectedProjectId = document.getElementById('selectedProjectId');
+const projectItemTitle = document.getElementById('projectItemTitle');
+const projectItemBody = document.getElementById('projectItemBody');
+const createProjectItemBtn = document.getElementById('createProjectItemBtn');
+const cancelProjectItemBtn = document.getElementById('cancelProjectItemBtn');
+
 // History Detail Modal elements
 const historyDetailModal = document.getElementById('historyDetailModal');
 const closeModalBtn = document.getElementById('closeModalBtn');
@@ -195,6 +208,16 @@ githubRepoSearch.addEventListener('focus', () => showRepoDropdown());
 githubRepoSearch.addEventListener('blur', () => {
   // Delay to allow click on repo item
   setTimeout(() => hideRepoDropdown(), 200);
+});
+
+// GitHub Project form
+backFromGitHubProjectBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+cancelProjectItemBtn.addEventListener('click', () => showScreen(screens.DESTINATION));
+createProjectItemBtn.addEventListener('click', handleCreateProjectItem);
+githubProjectSearch.addEventListener('input', handleProjectSearch);
+githubProjectSearch.addEventListener('focus', () => showProjectDropdown());
+githubProjectSearch.addEventListener('blur', () => {
+  setTimeout(() => hideProjectDropdown(), 200);
 });
 
 // Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
@@ -447,6 +470,8 @@ async function handleDestinationSelected(destination) {
     await saveDraft();
   } else if (destination === 'github-issue') {
     await showGitHubIssueForm();
+  } else if (destination === 'github-project') {
+    await showGitHubProjectForm();
   } else {
     showToast(`${destination} integration coming in later phases`, 'warning');
   }
@@ -1174,6 +1199,193 @@ function showHistoryDetailModal(item) {
 
 function hideHistoryDetailModal() {
   historyDetailModal.style.display = 'none';
+}
+
+// ============================================================================
+// GitHub Project Form Functions
+// ============================================================================
+
+let projects = [];
+let selectedProject = null;
+
+async function showGitHubProjectForm() {
+  try {
+    // Pre-fill item body with transcription
+    projectItemBody.value = currentTranscription;
+
+    // Load projects
+    showToast('Loading projects...', 'info');
+    projects = await GitHubService.fetchProjects();
+    console.log(`[GitHub Project] Loaded ${projects.length} projects`);
+
+    // Show the form
+    showScreen(screens.GITHUB_PROJECT);
+
+    // Focus title input
+    projectItemTitle.focus();
+  } catch (error) {
+    console.error('[GitHub Project] Error loading projects:', error);
+    showToast(`Failed to load projects: ${error.message}`, 'error');
+  }
+}
+
+function showProjectDropdown() {
+  renderProjectList();
+  projectList.style.display = 'block';
+}
+
+function hideProjectDropdown() {
+  projectList.style.display = 'none';
+}
+
+async function handleProjectSearch(e) {
+  const query = e.target.value.trim();
+  renderProjectList(query);
+}
+
+async function renderProjectList(query = '') {
+  // Get recently used projects
+  const recentProjects = await GitHubCache.getRecentlyUsedProjects();
+  const recentProjectIds = recentProjects.map(p => p.id);
+
+  // Filter all projects
+  const filteredProjects = query
+    ? GitHubService.searchProjects(query, projects)
+    : projects;
+
+  // Render recently used section
+  if (recentProjects.length > 0 && !query) {
+    recentProjectsList.innerHTML = recentProjects.map(project =>
+      createProjectItem(project.id, project.title, project.description, true)
+    ).join('');
+  } else {
+    recentProjectsList.innerHTML = '<div class="repo-empty">No recently used projects</div>';
+  }
+
+  // Render all projects (excluding recently used)
+  const nonRecentProjects = filteredProjects.filter(project =>
+    !recentProjectIds.includes(project.id)
+  );
+
+  if (nonRecentProjects.length > 0) {
+    allProjectsList.innerHTML = nonRecentProjects
+      .slice(0, 20)
+      .map(project => createProjectItem(project.id, project.title, project.description, false))
+      .join('');
+  } else {
+    allProjectsList.innerHTML = '<div class="repo-empty">No projects found</div>';
+  }
+
+  // Add click handlers
+  document.querySelectorAll('.project-item').forEach(item => {
+    item.addEventListener('click', handleProjectSelected);
+  });
+}
+
+function createProjectItem(id, title, description, isRecent) {
+  return `
+    <div class="project-item repo-item" data-project-id="${id}">
+      <div class="repo-name">${title}${isRecent ? ' ⭐' : ''}</div>
+      ${description ? `<div class="repo-description">${description}</div>` : ''}
+    </div>
+  `;
+}
+
+function handleProjectSelected(e) {
+  const projectId = e.currentTarget.getAttribute('data-project-id');
+  selectedProject = projects.find(p => p.id === projectId);
+
+  if (selectedProject) {
+    githubProjectSearch.value = selectedProject.title;
+    selectedProjectId.value = selectedProject.id;
+
+    // Update UI
+    document.querySelectorAll('.project-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    e.currentTarget.classList.add('selected');
+
+    hideProjectDropdown();
+  }
+}
+
+async function handleCreateProjectItem() {
+  try {
+    // Validate inputs
+    if (!selectedProject) {
+      showToast('Please select a project', 'error');
+      githubProjectSearch.focus();
+      return;
+    }
+
+    if (!projectItemTitle.value.trim()) {
+      showToast('Please enter a title', 'error');
+      projectItemTitle.focus();
+      return;
+    }
+
+    // Disable button and show loading
+    createProjectItemBtn.disabled = true;
+    createProjectItemBtn.textContent = 'Adding...';
+
+    // Create draft issue data
+    const itemData = {
+      title: projectItemTitle.value.trim(),
+      body: projectItemBody.value.trim()
+    };
+
+    console.log('[GitHub Project] Creating draft issue:', itemData);
+
+    // Create the draft issue
+    const createdItem = await GitHubService.createProjectDraftIssue(selectedProject.id, itemData);
+
+    console.log('[GitHub Project] Draft issue created');
+
+    // Save to history
+    const { generateUUID } = await import('../utils/helpers.js');
+    const { addToHistory } = await import('../lib/storage.js');
+
+    await addToHistory({
+      id: generateUUID(),
+      timestamp: Date.now(),
+      transcription: currentTranscription,
+      destination: 'github-project',
+      metadata: {
+        projectId: selectedProject.id,
+        projectTitle: selectedProject.title,
+        projectUrl: selectedProject.url,
+        itemTitle: itemData.title
+      }
+    });
+
+    // Show success
+    showToast(
+      `✓ Added to project! <a href="${selectedProject.url}" target="_blank" style="color: inherit; text-decoration: underline;">View Project →</a>`,
+      'success',
+      5000
+    );
+
+    // Reset form
+    resetProjectForm();
+
+    // Go back to recording screen
+    showScreen(screens.RECORDING);
+
+  } catch (error) {
+    console.error('[GitHub Project] Error creating draft issue:', error);
+    showToast(`Failed to add to project: ${error.message}`, 'error');
+  } finally {
+    createProjectItemBtn.disabled = false;
+    createProjectItemBtn.textContent = 'Add to Project';
+  }
+}
+
+function resetProjectForm() {
+  githubProjectSearch.value = '';
+  selectedProjectId.value = '';
+  projectItemTitle.value = '';
+  projectItemBody.value = '';
+  selectedProject = null;
 }
 
 // ============================================================================
