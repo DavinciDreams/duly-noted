@@ -74,6 +74,14 @@ export class GitHubService {
   }
 
   /**
+   * Get authenticated user information
+   * @returns {Promise<Object>} User data
+   */
+  static async getUser() {
+    return this.apiRequest('/user');
+  }
+
+  /**
    * Fetch all repositories for the authenticated user
    * Uses cache if available and not expired
    * @param {boolean} forceRefresh - Force refresh from API
