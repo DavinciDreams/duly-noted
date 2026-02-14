@@ -366,11 +366,12 @@ function stopTimer() {
 async function showDestinationChooser() {
   destinationTranscriptionPreview.textContent = truncateText(currentTranscription, 200);
 
-  // Enable/disable destination options based on settings
+  // Enable/disable destination options based on OAuth authentication
+  const isGitHubAuthenticated = await GitHubOAuth.isAuthenticated();
   const settings = await getSettings();
 
-  document.querySelector('[data-destination="github-issue"]').disabled = !settings.githubToken;
-  document.querySelector('[data-destination="github-project"]').disabled = !settings.githubToken;
+  document.querySelector('[data-destination="github-issue"]').disabled = !isGitHubAuthenticated;
+  document.querySelector('[data-destination="github-project"]').disabled = !isGitHubAuthenticated;
   document.querySelector('[data-destination="onenote"]').disabled = !settings.onenoteToken;
 
   showScreen(screens.DESTINATION);
