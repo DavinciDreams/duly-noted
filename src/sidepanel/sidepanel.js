@@ -81,7 +81,6 @@ const destinationTranscriptionPreview = document.getElementById('destinationTran
 
 // Forms
 const githubTokenInput = document.getElementById('githubToken');
-const githubDefaultRepoInput = document.getElementById('githubDefaultRepo');
 const maxDurationInput = document.getElementById('maxDuration');
 
 // OAuth elements
@@ -534,7 +533,6 @@ async function loadSettings() {
     const settings = await getSettings();
 
     githubTokenInput.value = settings.githubToken || '';
-    githubDefaultRepoInput.value = settings.githubDefaultRepo || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
 
     // Update GitHub OAuth UI
@@ -549,7 +547,6 @@ async function handleSaveSettings() {
   try {
     const updates = {
       githubToken: githubTokenInput.value.trim() || null,
-      githubDefaultRepo: githubDefaultRepoInput.value.trim() || null,
       maxRecordingDuration: parseInt(maxDurationInput.value) || 300,
     };
 
