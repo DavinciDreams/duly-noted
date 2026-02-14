@@ -53,14 +53,19 @@ Storage Service (chrome.storage.local)
 1. Record voice note
 2. Stop recording → Destination chooser appears
 3. Select "GitHub Issue"
-4. Choose repository from configured list
-5. Optionally add:
-   - Title (auto-generated from first line or custom)
-   - Labels
-   - Assignees
-   - Milestone
+4. **Repository Picker** appears:
+   - Shows recently used repos at top
+   - Search/filter by name
+   - Can access all repos user has `repo` access to
+5. Select repository → Issue form appears:
+   - Title: Auto-generated from first line (editable)
+   - Body: Full transcription (markdown formatted)
+   - Labels: Multi-select from repo labels (optional)
+   - Assignees: Multi-select (optional, defaults to self)
+   - Milestone: Dropdown (optional)
 6. Confirm → Issue created
 7. Success notification with link to created issue
+8. Repository added to "recently used" list for quick access next time
 
 #### Technical Implementation
 ```javascript
@@ -81,19 +86,71 @@ POST https://api.github.com/repos/{owner}/{repo}/issues
 }
 ```
 
-#### Settings Required
-- GitHub PAT (with `repo` scope)
-- Default repository (owner/repo format)
-- Optional: Default labels, assignees
+#### Dynamic Repository/Project Selection
+
+**Repository List Caching:**
+```javascript
+// GET https://api.github.com/user/repos
+// Returns all repos user has access to
+// Cache for 24 hours in chrome.storage.local
+
+{
+  githubRepos: [
+    { name: 'duly-noted', owner: 'DavinciDreams', full_name: 'DavinciDreams/duly-noted' },
+    { name: 'my-project', owner: 'DavinciDreams', full_name: 'DavinciDreams/my-project' }
+  ],
+  githubReposCachedAt: 1707900000000,
+  githubReposRecentlyUsed: ['DavinciDreams/duly-noted', 'DavinciDreams/my-project']
+}
+```
+
+**Project List Caching:**
+```graphql
+# GitHub Projects v2 GraphQL query
+query {
+  viewer {
+    projectsV2(first: 100) {
+      nodes {
+        id
+        title
+        url
+      }
+    }
+  }
+  organization(login: "orgname") {
+    projectsV2(first: 100) {
+      nodes {
+        id
+        title
+        url
+      }
+    }
+  }
+}
+```
+
+**Settings Required:**
+- GitHub OAuth token (with `repo` and `project` scopes)
+- Optional: Default repository for quick create
+- Optional: Default project for quick create
+- Recently used repos/projects (auto-populated)
 
 #### Files to Create/Modify
 - `src/lib/oauth-service.js` (new) - Generic OAuth handler
 - `src/lib/github-oauth.js` (new) - GitHub OAuth implementation
-- `src/lib/github-service.js` (new) - GitHub API wrapper
+- `src/lib/github-service.js` (new) - GitHub API wrapper with:
+  - `fetchRepositories()` - Get all repos, cache for 24h
+  - `fetchProjects()` - Get all projects (GraphQL), cache for 24h
+  - `createIssue(repo, data)` - Create issue in selected repo
+  - `getRepoLabels(repo)` - Fetch labels for selected repo
+  - `getRepoMilestones(repo)` - Fetch milestones for selected repo
+- `src/lib/github-cache.js` (new) - Repository/project caching logic
 - `src/oauth/oauth-callback.html` (new) - OAuth redirect page
 - `src/oauth/oauth-callback.js` (new) - Token handling
 - `src/sidepanel/sidepanel.js` - Add GitHub destination handler
-- `src/sidepanel/sidepanel.html` - GitHub issue form UI + OAuth buttons
+- `src/sidepanel/sidepanel.html` - Repository picker + Issue form UI + OAuth buttons
+- `src/components/repo-picker.js` (new) - Reusable repo picker component
+- `src/components/project-picker.js` (new) - Reusable project picker component
 - `manifest.json` - Update permissions:
   ```json
   {
@@ -121,13 +178,19 @@ POST https://api.github.com/repos/{owner}/{repo}/issues
 #### User Flow
 1. Record voice note
 2. Select "GitHub Project"
-3. Choose project from list
-4. Choose status column (Todo, In Progress, Done, etc.)
-5. Optionally:
-   - Set priority
-   - Add custom fields
-6. Confirm → Item added to project
-7. Success notification with link
+3. **Project Picker** appears:
+   - Shows recently used projects at top
+   - Search/filter by name
+   - Can access all projects user has access to (org + personal)
+4. Select project → Project form appears:
+   - Title: Auto-generated from first line (editable)
+   - Body: Full transcription (markdown formatted)
+   - Status: Dropdown (Todo, In Progress, Done, etc.)
+   - Priority: Dropdown (optional, if project has priority field)
+   - Custom fields: Based on project configuration (optional)
+5. Confirm → Draft issue added to project
+6. Success notification with link to project item
+7. Project added to "recently used" list
 
 #### Technical Implementation
 ```graphql
@@ -327,13 +390,34 @@ Transcription Settings:
   developerMode: boolean,         // NEW: Toggle for token inputs vs OAuth
 
   // GitHub (OAuth)
-  githubToken: string,            // OAuth access token
-  githubUsername: string,         // NEW: Display name
-  githubTokenExpiry: number,      // NEW: Token expiration timestamp
-  githubRefreshToken: string,     // NEW: For token refresh
-  githubDefaultRepo: string,      // e.g., "DavinciDreams/duly-noted"
-  githubDefaultLabels: string[],  // NEW
-  githubDefaultProject: string,   // NEW: Project ID
+  githubToken: string,                    // OAuth access token
+  githubUsername: string,                 // NEW: Display name
+  githubTokenExpiry: number,              // NEW: Token expiration timestamp
+  githubRefreshToken: string,             // NEW: For token refresh
+
+  // Repository/Project Cache & Preferences
+  githubRepos: Array<{                    // NEW: Cached repository list
+    name: string,
+    owner: string,
+    full_name: string,
+    private: boolean
+  }>,
+  githubReposCachedAt: number,            // NEW: Cache timestamp
+  githubReposRecentlyUsed: string[],      // NEW: ['owner/repo', ...]
+
+  githubProjects: Array<{                 // NEW: Cached project list
+    id: string,
+    title: string,
+    url: string,
+    owner: string  // 'user' or org name
+  }>,
+  githubProjectsCachedAt: number,         // NEW: Cache timestamp
+  githubProjectsRecentlyUsed: string[],   // NEW: [projectId, ...]
+
+  // Quick Create Defaults (optional)
+  githubDefaultRepo: string,              // Optional: Quick create default
+  githubDefaultProject: string,           // Optional: Quick create default
+  githubDefaultLabels: string[],          // NEW: Default labels for quick create
 
   // Google/OneNote (OAuth)
   googleToken: string,            // NEW: OAuth access token
@@ -559,10 +643,99 @@ This approach is **strongly recommended for production** but requires hosting th
    Settings page updates to show "Connected"
 ```
 
-### 1. GitHub Integration Scope
-- Should we support **multiple repositories** or just one default?
-- Should **labels** be pre-configured or selected each time?
-- Do you want to assign issues to yourself automatically?
+#### Repository/Project Picker UI
+```
+┌─────────────────────────────────────────┐
+│ 📝 Create GitHub Issue                  │
+├─────────────────────────────────────────┤
+│                                         │
+│ Select Repository                       │
+│ ┌─────────────────────────────────────┐ │
+│ │ 🔍 Search repositories...           │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ Recently Used:                          │
+│ ┌─────────────────────────────────────┐ │
+│ │ ⭐ DavinciDreams/duly-noted          │ │
+│ │ ⭐ DavinciDreams/atlas-agents        │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ All Repositories:                       │
+│ ┌─────────────────────────────────────┐ │
+│ │ □ DavinciDreams/another-project     │ │
+│ │ □ OrgName/team-project              │ │
+│ │ □ DavinciDreams/old-project         │ │
+│ │ ...                                 │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ [🔄 Refresh List]        [Cancel] [Next]│
+└─────────────────────────────────────────┘
+
+After selecting repo:
+┌─────────────────────────────────────────┐
+│ 📝 Create Issue in duly-noted           │
+├─────────────────────────────────────────┤
+│                                         │
+│ Title:                                  │
+│ [Add voice transcription feature    ]  │
+│                                         │
+│ Description: (Markdown)                 │
+│ ┌─────────────────────────────────────┐ │
+│ │ We should add voice transcription   │ │
+│ │ to make capturing notes faster.     │ │
+│ │ This would use Web Speech API...    │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ Labels: (Multi-select)                  │
+│ [enhancement ▼] [voice ▼] [+ Add]      │
+│                                         │
+│ Assignees: (Optional)                   │
+│ [@DavinciDreams ▼] [+ Add]             │
+│                                         │
+│ Milestone: (Optional)                   │
+│ [v1.0 ▼]                                │
+│                                         │
+│          [Back] [Cancel] [Create Issue] │
+└─────────────────────────────────────────┘
+```
+
+### 1. GitHub Integration Scope ✅ ANSWERED
+**Decision**: Support **multiple repositories and projects** with dynamic selection
+- User can choose any repository/project at the time of note creation
+- **Recently used** repos/projects appear at top of picker
+- **Quick Create Mode**: If user sets a default repo, show "Quick Create" button
+  - Clicking "Quick Create" skips picker, uses default repo + labels
+  - Clicking "Choose Repository" opens full picker
+- Cache repository/project lists for performance (refresh every 24h or on demand)
+- Search/filter functionality in pickers for large repo lists
+
+**UI Enhancement - Destination Chooser with Quick Create:**
+```
+┌─────────────────────────────────────────┐
+│ 📝 Where should this note go?           │
+├─────────────────────────────────────────┤
+│                                         │
+│ GitHub                                  │
+│ ┌─────────────────────────────────────┐ │
+│ │ ⚡ Quick Create Issue                │ │
+│ │    in DavinciDreams/duly-noted      │ │
+│ └─────────────────────────────────────┘ │
+│ ┌─────────────────────────────────────┐ │
+│ │ 📂 Choose Different Repository...   │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ ┌─────────────────────────────────────┐ │
+│ │ 📊 Create Project Item...           │ │
+│ └─────────────────────────────────────┘ │
+│                                         │
+│ Other Destinations                      │
+│ ┌─────────────────────────────────────┐ │
+│ │ 💾 Save as Draft                    │ │
+│ │ 📝 OneNote                          │ │
+│ │ 🗒️  Notion                           │ │
+│ └─────────────────────────────────────┘ │
+└─────────────────────────────────────────┘
+```
 
 ### 2. Draft Management
 - Should archived drafts be **hidden by default** or shown in a separate section?
