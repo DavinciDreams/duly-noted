@@ -126,11 +126,11 @@ export class NotionOAuth {
 
       // Store token
       await OAuthService.storeTokens('notion', {
-        accessToken: access_token,
-        tokenExpiry: null, // Notion tokens don't expire
-        refreshToken: null,
-        botId: bot_id,
-        workspaceId: workspace_id
+        access_token: access_token,
+        expires_in: null, // Notion tokens don't expire
+        refresh_token: null,
+        bot_id: bot_id,
+        workspace_id: workspace_id
       });
 
       // Store workspace info
