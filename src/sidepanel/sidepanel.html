@@ -351,6 +351,34 @@
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container"></div>
 
+    <!-- History Detail Modal -->
+    <div id="historyDetailModal" class="modal" style="display: none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Note Details</h3>
+          <button id="closeModalBtn" class="btn-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="detail-section">
+            <label>Transcription:</label>
+            <div id="modalTranscription" class="transcription-display"></div>
+          </div>
+          <div class="detail-section">
+            <label>Sent to:</label>
+            <div id="modalDestination"></div>
+          </div>
+          <div class="detail-section" id="modalLinkSection" style="display: none;">
+            <label>Link:</label>
+            <a id="modalLink" href="#" target="_blank" class="external-link">View on GitHub →</a>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="closeModalBtnFooter" class="btn btn-secondary">Close</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <script src="sidepanel.js" type="module"></script>

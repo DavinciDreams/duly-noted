@@ -120,6 +120,16 @@ const issueLabels = document.getElementById('issueLabels');
 const createIssueBtn = document.getElementById('createIssueBtn');
 const cancelIssueBtn = document.getElementById('cancelIssueBtn');
 
+// History Detail Modal elements
+const historyDetailModal = document.getElementById('historyDetailModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const closeModalBtnFooter = document.getElementById('closeModalBtnFooter');
+const modalTitle = document.getElementById('modalTitle');
+const modalTranscription = document.getElementById('modalTranscription');
+const modalDestination = document.getElementById('modalDestination');
+const modalLink = document.getElementById('modalLink');
+const modalLinkSection = document.getElementById('modalLinkSection');
+
 // ============================================================================
 // Event Listeners
 // ============================================================================
@@ -189,6 +199,16 @@ githubRepoSearch.addEventListener('blur', () => {
 
 // Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
 // No need for message listeners
+
+// History Detail Modal
+closeModalBtn.addEventListener('click', hideHistoryDetailModal);
+closeModalBtnFooter.addEventListener('click', hideHistoryDetailModal);
+historyDetailModal.addEventListener('click', (e) => {
+  // Close if clicking overlay (outside modal content)
+  if (e.target === historyDetailModal || e.target.classList.contains('modal-overlay')) {
+    hideHistoryDetailModal();
+  }
+});
 
 // ============================================================================
 // Recording Functions
@@ -564,9 +584,9 @@ function handleHistoryItemClick(itemId, allItems) {
   if (item.status === 'draft') {
     // TODO: Show draft promotion UI in Phase 3
     showToast('Draft promotion coming in Phase 3', 'info');
-  } else if (item.artifactUrl) {
-    // Open artifact in new tab
-    chrome.tabs.create({ url: item.artifactUrl });
+  } else {
+    // Show detail modal with transcription and link
+    showHistoryDetailModal(item);
   }
 }
 
@@ -870,18 +890,24 @@ function updateDestinationOptions() {
 // Toast Notifications
 // ============================================================================
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', duration = 3000) {
   const toastContainer = document.getElementById('toastContainer');
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
+
+  // Support HTML content for links
+  if (message.includes('<a')) {
+    toast.innerHTML = message;
+  } else {
+    toast.textContent = message;
+  }
 
   toastContainer.appendChild(toast);
 
   setTimeout(() => {
     toast.remove();
-  }, 3000);
+  }, duration);
 }
 
 // ============================================================================
@@ -1074,19 +1100,18 @@ async function handleCreateIssue() {
       }
     });
 
-    // Show success with link
-    showToast('✓ Issue created successfully!', 'success');
+    // Show success with clickable link
+    showToast(
+      `✓ Issue #${createdIssue.number} created! <a href="${createdIssue.html_url}" target="_blank" style="color: inherit; text-decoration: underline;">View on GitHub →</a>`,
+      'success',
+      5000 // Show for 5 seconds
+    );
 
     // Reset form
     resetIssueForm();
 
     // Go back to recording screen
     showScreen(screens.RECORDING);
-
-    // Show created issue details in toast
-    setTimeout(() => {
-      showToast(`View issue: ${createdIssue.html_url}`, 'info');
-    }, 1000);
 
   } catch (error) {
     console.error('[GitHub Issue] Error creating issue:', error);
@@ -1104,6 +1129,51 @@ function resetIssueForm() {
   issueBody.value = '';
   issueLabels.value = '';
   selectedRepo = null;
+}
+
+// ============================================================================
+// History Detail Modal Functions
+// ============================================================================
+
+function showHistoryDetailModal(item) {
+  // Set modal content
+  modalTranscription.textContent = item.transcription;
+
+  // Set destination
+  const destinationNames = {
+    'github-issue': 'GitHub Issue',
+    'github-project': 'GitHub Project',
+    'notion': 'Notion',
+    'onenote': 'OneNote',
+    'draft': 'Draft'
+  };
+  modalDestination.textContent = destinationNames[item.destination] || item.destination;
+
+  // Set link if available
+  const linkUrl = item.metadata?.issueUrl || item.metadata?.projectUrl || item.artifactUrl;
+  if (linkUrl) {
+    modalLink.href = linkUrl;
+
+    // Set link text based on destination
+    if (item.destination === 'github-issue') {
+      modalLink.textContent = `Issue #${item.metadata.issueNumber} on GitHub →`;
+    } else if (item.destination === 'github-project') {
+      modalLink.textContent = `View on GitHub Projects →`;
+    } else {
+      modalLink.textContent = `View →`;
+    }
+
+    modalLinkSection.style.display = 'block';
+  } else {
+    modalLinkSection.style.display = 'none';
+  }
+
+  // Show modal
+  historyDetailModal.style.display = 'flex';
+}
+
+function hideHistoryDetailModal() {
+  historyDetailModal.style.display = 'none';
 }
 
 // ============================================================================
