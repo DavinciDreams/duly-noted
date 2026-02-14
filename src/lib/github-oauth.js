@@ -1,0 +1,209 @@
+/**
+ * GitHub OAuth Implementation
+ * Handles GitHub-specific OAuth 2.0 flow
+ */
+
+import { OAuthService } from './oauth-service.js';
+
+// GitHub OAuth Configuration
+// NOTE: In production, these should be environment variables or fetched from a secure backend
+const GITHUB_CONFIG = {
+  clientId: 'YOUR_GITHUB_CLIENT_ID', // TODO: Replace with actual client ID
+  clientSecret: 'YOUR_GITHUB_CLIENT_SECRET', // TODO: Replace with actual client secret
+  authUrl: 'https://github.com/login/oauth/authorize',
+  tokenUrl: 'https://github.com/login/oauth/access_token',
+  apiUrl: 'https://api.github.com',
+  scopes: ['repo', 'project', 'read:user']
+};
+
+export class GitHubOAuth {
+  /**
+   * Get redirect URI for OAuth callback
+   * @returns {string} Redirect URI
+   */
+  static getRedirectUri() {
+    return chrome.runtime.getURL('src/oauth/oauth-callback.html');
+  }
+
+  /**
+   * Initiate GitHub OAuth flow
+   * Opens authorization popup and stores state
+   * @returns {Promise<void>}
+   */
+  static async authorize() {
+    try {
+      // Generate and store state for CSRF protection
+      const state = OAuthService.generateState();
+      await chrome.storage.local.set({ githubOAuthState: state });
+
+      // Build authorization URL
+      const authUrl = OAuthService.buildAuthUrl({
+        authUrl: GITHUB_CONFIG.authUrl,
+        clientId: GITHUB_CONFIG.clientId,
+        redirectUri: this.getRedirectUri(),
+        scopes: GITHUB_CONFIG.scopes,
+        state: state
+      });
+
+      // Open OAuth popup
+      await OAuthService.openAuthPopup(authUrl);
+      console.log('[GitHubOAuth] Authorization popup opened');
+    } catch (error) {
+      console.error('[GitHubOAuth] Authorization failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle OAuth callback with authorization code
+   * @param {string} code - Authorization code from GitHub
+   * @param {string} state - State parameter for CSRF validation
+   * @returns {Promise<Object>} User data with token
+   */
+  static async handleCallback(code, state) {
+    try {
+      // Verify state to prevent CSRF
+      const { githubOAuthState } = await chrome.storage.local.get('githubOAuthState');
+      if (state !== githubOAuthState) {
+        throw new Error('Invalid state parameter - possible CSRF attack');
+      }
+
+      // Exchange code for token
+      const tokenData = await OAuthService.exchangeCodeForToken({
+        tokenUrl: GITHUB_CONFIG.tokenUrl,
+        code: code,
+        clientId: GITHUB_CONFIG.clientId,
+        clientSecret: GITHUB_CONFIG.clientSecret,
+        redirectUri: this.getRedirectUri()
+      });
+
+      // Store tokens
+      await OAuthService.storeTokens('github', tokenData);
+
+      // Fetch user info
+      const userData = await this.getUserInfo(tokenData.access_token);
+
+      // Store username
+      await chrome.storage.local.set({
+        githubUsername: userData.login
+      });
+
+      // Clean up state
+      await chrome.storage.local.remove('githubOAuthState');
+
+      console.log('[GitHubOAuth] Authentication successful:', userData.login);
+      return { token: tokenData.access_token, user: userData };
+    } catch (error) {
+      console.error('[GitHubOAuth] Callback handling failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get authenticated user information
+   * @param {string} token - Access token
+   * @returns {Promise<Object>} User data
+   */
+  static async getUserInfo(token) {
+    const response = await fetch(`${GITHUB_CONFIG.apiUrl}/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user info: ${response.statusText}`);
+    }
+
+    return response.json();
+  }
+
+  /**
+   * Check if user is currently authenticated
+   * @returns {Promise<boolean>} True if authenticated with valid token
+   */
+  static async isAuthenticated() {
+    const { githubToken, githubTokenExpiry } = await OAuthService.getTokens('github');
+
+    if (!githubToken) return false;
+
+    // Check if token is expired
+    if (OAuthService.isTokenExpired(githubTokenExpiry)) {
+      // Try to refresh token
+      const refreshed = await this.refreshTokenIfNeeded();
+      return refreshed;
+    }
+
+    return true;
+  }
+
+  /**
+   * Refresh GitHub token if needed
+   * @returns {Promise<boolean>} True if token is valid after refresh
+   */
+  static async refreshTokenIfNeeded() {
+    const { githubToken, githubTokenExpiry, githubRefreshToken } =
+      await OAuthService.getTokens('github');
+
+    // If no token, not authenticated
+    if (!githubToken) return false;
+
+    // If not expired, token is still valid
+    if (!OAuthService.isTokenExpired(githubTokenExpiry)) return true;
+
+    // If no refresh token, cannot refresh
+    if (!githubRefreshToken) {
+      console.warn('[GitHubOAuth] Token expired but no refresh token available');
+      return false;
+    }
+
+    try {
+      // Refresh the token
+      const tokenData = await OAuthService.refreshToken({
+        tokenUrl: GITHUB_CONFIG.tokenUrl,
+        refreshToken: githubRefreshToken,
+        clientId: GITHUB_CONFIG.clientId,
+        clientSecret: GITHUB_CONFIG.clientSecret
+      });
+
+      // Store new tokens
+      await OAuthService.storeTokens('github', tokenData);
+      console.log('[GitHubOAuth] Token refreshed successfully');
+      return true;
+    } catch (error) {
+      console.error('[GitHubOAuth] Token refresh failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Sign out - clear all GitHub tokens and data
+   * @returns {Promise<void>}
+   */
+  static async signOut() {
+    await OAuthService.clearTokens('github');
+    // Also clear cached repositories and projects
+    await chrome.storage.local.remove([
+      'githubRepos',
+      'githubReposCachedAt',
+      'githubReposRecentlyUsed',
+      'githubProjects',
+      'githubProjectsCachedAt',
+      'githubProjectsRecentlyUsed'
+    ]);
+    console.log('[GitHubOAuth] Signed out successfully');
+  }
+
+  /**
+   * Get current access token (refreshes if needed)
+   * @returns {Promise<string|null>} Access token or null if not authenticated
+   */
+  static async getAccessToken() {
+    const isAuth = await this.isAuthenticated();
+    if (!isAuth) return null;
+
+    const { githubToken } = await OAuthService.getTokens('github');
+    return githubToken;
+  }
+}

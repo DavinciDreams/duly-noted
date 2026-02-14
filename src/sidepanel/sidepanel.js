@@ -6,6 +6,8 @@
 import { getDrafts, getHistory, getSettings, updateSettings, resetSettings } from '../lib/storage.js';
 import { formatRelativeTime, getDestinationIcon, truncateText } from '../utils/helpers.js';
 import { TranscriptionService } from '../lib/transcription-service.js';
+import { GitHubOAuth } from '../lib/github-oauth.js';
+import { GitHubService } from '../lib/github-service.js';
 
 console.log('[Side Panel] Loading...');
 
@@ -82,6 +84,17 @@ const githubTokenInput = document.getElementById('githubToken');
 const githubDefaultRepoInput = document.getElementById('githubDefaultRepo');
 const maxDurationInput = document.getElementById('maxDuration');
 
+// OAuth elements
+const githubOAuthSection = document.getElementById('githubOAuthSection');
+const githubNotConnected = document.getElementById('githubNotConnected');
+const githubConnected = document.getElementById('githubConnected');
+const githubSignInBtn = document.getElementById('githubSignInBtn');
+const githubSignOutBtn = document.getElementById('githubSignOutBtn');
+const githubUsername = document.getElementById('githubUsername');
+const githubAvatar = document.getElementById('githubAvatar');
+const developerModeToggle = document.getElementById('developerModeToggle');
+const githubDeveloperSection = document.getElementById('githubDeveloperSection');
+
 // ============================================================================
 // Event Listeners
 // ============================================================================
@@ -128,6 +141,20 @@ document.querySelectorAll('.destination-option').forEach(btn => {
 // Settings
 saveSettingsBtn.addEventListener('click', handleSaveSettings);
 resetSettingsBtn.addEventListener('click', handleResetSettings);
+
+// GitHub OAuth
+githubSignInBtn.addEventListener('click', handleGitHubSignIn);
+githubSignOutBtn.addEventListener('click', handleGitHubSignOut);
+developerModeToggle.addEventListener('change', handleDeveloperModeToggle);
+
+// Listen for OAuth callback success
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'GITHUB_AUTH_SUCCESS') {
+    handleGitHubAuthSuccess(message.username);
+  } else if (message.type === 'GITHUB_AUTH_ERROR') {
+    showToast(`GitHub auth failed: ${message.error}`, 'error');
+  }
+});
 
 // ============================================================================
 // Recording Functions
@@ -515,6 +542,9 @@ async function loadSettings() {
     githubTokenInput.value = settings.githubToken || '';
     githubDefaultRepoInput.value = settings.githubDefaultRepo || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
+
+    // Update GitHub OAuth UI
+    await updateGitHubConnectionUI();
   } catch (error) {
     console.error('[Side Panel] Error loading settings:', error);
     showToast('Error loading settings', 'error');
@@ -563,6 +593,152 @@ async function handleResetSettings() {
 }
 
 // ============================================================================
+// GitHub OAuth Functions
+// ============================================================================
+
+async function handleGitHubSignIn() {
+  try {
+    console.log('[Side Panel] Initiating GitHub OAuth flow');
+    githubSignInBtn.disabled = true;
+    githubSignInBtn.textContent = 'Opening GitHub...';
+
+    await GitHubOAuth.authorize();
+
+    // The OAuth callback will send a message when complete
+    // UI update happens in handleGitHubAuthSuccess
+  } catch (error) {
+    console.error('[Side Panel] GitHub sign-in error:', error);
+    showToast(`Failed to sign in: ${error.message}`, 'error');
+    githubSignInBtn.disabled = false;
+    githubSignInBtn.innerHTML = `
+      <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+      </svg>
+      Sign in with GitHub
+    `;
+  }
+}
+
+async function handleGitHubAuthSuccess(username) {
+  console.log('[Side Panel] GitHub auth successful:', username);
+
+  // Reset sign in button
+  githubSignInBtn.disabled = false;
+  githubSignInBtn.innerHTML = `
+    <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+    </svg>
+    Sign in with GitHub
+  `;
+
+  // Update UI to show connected state
+  await updateGitHubConnectionUI();
+
+  // Enable GitHub destination options
+  updateDestinationOptions();
+
+  showToast(`Connected to GitHub as @${username}`, 'success');
+}
+
+async function handleGitHubSignOut() {
+  if (!confirm('Are you sure you want to sign out of GitHub?')) {
+    return;
+  }
+
+  try {
+    await GitHubOAuth.signOut();
+    await updateGitHubConnectionUI();
+    updateDestinationOptions();
+    showToast('Signed out of GitHub', 'success');
+  } catch (error) {
+    console.error('[Side Panel] GitHub sign-out error:', error);
+    showToast(`Failed to sign out: ${error.message}`, 'error');
+  }
+}
+
+function handleDeveloperModeToggle(e) {
+  const isDeveloperMode = e.target.checked;
+
+  if (isDeveloperMode) {
+    githubOAuthSection.style.display = 'none';
+    githubDeveloperSection.style.display = 'block';
+  } else {
+    githubOAuthSection.style.display = 'block';
+    githubDeveloperSection.style.display = 'none';
+  }
+}
+
+async function updateGitHubConnectionUI() {
+  const isAuth = await GitHubOAuth.isAuthenticated();
+
+  if (isAuth) {
+    // Get user info from storage
+    const { githubUsername: username } = await chrome.storage.local.get('githubUsername');
+
+    if (username) {
+      // Fetch user data for avatar
+      try {
+        const user = await GitHubService.getUser();
+        githubUsername.textContent = `@${user.login}`;
+        githubAvatar.src = user.avatar_url;
+        githubAvatar.alt = `${user.login}'s avatar`;
+      } catch (error) {
+        console.error('[Side Panel] Error fetching user data:', error);
+        githubUsername.textContent = `@${username}`;
+        githubAvatar.src = `https://github.com/${username}.png`;
+      }
+    }
+
+    githubNotConnected.style.display = 'none';
+    githubConnected.style.display = 'block';
+  } else {
+    githubNotConnected.style.display = 'block';
+    githubConnected.style.display = 'none';
+  }
+}
+
+function updateDestinationOptions() {
+  // This will be called after settings change to enable/disable destination buttons
+  // For now, we'll check GitHub auth status
+  GitHubOAuth.isAuthenticated().then(isAuth => {
+    const githubIssueBtn = document.querySelector('[data-destination="github-issue"]');
+    const githubProjectBtn = document.querySelector('[data-destination="github-project"]');
+
+    if (githubIssueBtn) {
+      if (isAuth) {
+        githubIssueBtn.disabled = false;
+        const badge = githubIssueBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        githubIssueBtn.disabled = true;
+        if (!githubIssueBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          githubIssueBtn.appendChild(badge);
+        }
+      }
+    }
+
+    if (githubProjectBtn) {
+      if (isAuth) {
+        githubProjectBtn.disabled = false;
+        const badge = githubProjectBtn.querySelector('.destination-badge');
+        if (badge) badge.remove();
+      } else {
+        githubProjectBtn.disabled = true;
+        if (!githubProjectBtn.querySelector('.destination-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'destination-badge';
+          badge.textContent = 'Not configured';
+          githubProjectBtn.appendChild(badge);
+        }
+      }
+    }
+  });
+}
+
+// ============================================================================
 // Toast Notifications
 // ============================================================================
 
@@ -589,6 +765,9 @@ async function init() {
 
   // Load initial data
   await loadRecentNotes();
+
+  // Update destination button states based on auth
+  updateDestinationOptions();
 
   // Show recording screen
   showScreen(screens.RECORDING);

@@ -603,3 +603,86 @@ body {
 .mt-sm { margin-top: var(--spacing-sm); }
 .mt-md { margin-top: var(--spacing-md); }
 .mt-lg { margin-top: var(--spacing-lg); }
+
+/* ============================================================================
+   OAuth Styles
+   ============================================================================ */
+
+.oauth-status {
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+  border-radius: var(--border-radius);
+  border: 1px solid var(--border-color);
+  margin-bottom: var(--spacing-lg);
+}
+
+.btn-oauth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+
+.oauth-icon {
+  flex-shrink: 0;
+}
+
+.connected-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.connected-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+}
+
+.connected-details {
+  flex: 1;
+}
+
+.connected-name {
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.connected-email {
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+.developer-mode-toggle {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border-color);
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+  user-select: none;
+}
+
+.toggle-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.toggle-label:hover {
+  color: var(--text-primary);
+}
