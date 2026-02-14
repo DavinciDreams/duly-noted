@@ -197,20 +197,26 @@ None yet - testing pending.
 
 ## 📦 Files Modified in This Session
 
-### New Files (11):
-1. `src/lib/oauth-service.js`
-2. `src/lib/github-oauth.js`
-3. `src/lib/github-cache.js`
-4. `src/oauth/oauth-callback.html`
-5. `src/oauth/oauth-callback.js`
-6. `PHASE-2-PROGRESS.md` (this file)
+### New Files (14):
+1. `src/lib/oauth-service.js` - Generic OAuth 2.0 service
+2. `src/lib/github-oauth.js` - GitHub OAuth implementation
+3. `src/lib/github-cache.js` - Caching service
+4. `src/oauth/oauth-callback.html` - OAuth redirect page
+5. `src/oauth/oauth-callback.js` - Callback handler
+6. `src/config/oauth-config.js` - Config loader
+7. `scripts/build-config.js` - Environment config builder
+8. `.env.example` - Environment template
+9. `SETUP-OAUTH.md` - OAuth setup guide
+10. `PHASE-2-PROGRESS.md` (this file)
 
-### Modified Files (5):
-1. `manifest.json`
+### Modified Files (8):
+1. `manifest.json` - Added OAuth permissions
 2. `src/lib/github-service.js` (already existed, verified)
-3. `src/sidepanel/sidepanel.html`
-4. `src/sidepanel/sidepanel.css`
-5. `src/sidepanel/sidepanel.js`
+3. `src/sidepanel/sidepanel.html` - OAuth UI
+4. `src/sidepanel/sidepanel.css` - OAuth styles
+5. `src/sidepanel/sidepanel.js` - OAuth handlers
+6. `package.json` - Added build:config script
+7. `.gitignore` - Added runtime-config.json
 
 ---
 

@@ -147,14 +147,8 @@ githubSignInBtn.addEventListener('click', handleGitHubSignIn);
 githubSignOutBtn.addEventListener('click', handleGitHubSignOut);
 developerModeToggle.addEventListener('change', handleDeveloperModeToggle);
 
-// Listen for OAuth callback success
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === 'GITHUB_AUTH_SUCCESS') {
-    handleGitHubAuthSuccess(message.username);
-  } else if (message.type === 'GITHUB_AUTH_ERROR') {
-    showToast(`GitHub auth failed: ${message.error}`, 'error');
-  }
-});
+// Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
+// No need for message listeners
 
 // ============================================================================
 // Recording Functions
@@ -602,10 +596,11 @@ async function handleGitHubSignIn() {
     githubSignInBtn.disabled = true;
     githubSignInBtn.textContent = 'Opening GitHub...';
 
-    await GitHubOAuth.authorize();
+    // Launch OAuth flow - this now completes the full flow and returns user data
+    const result = await GitHubOAuth.authorize();
 
-    // The OAuth callback will send a message when complete
-    // UI update happens in handleGitHubAuthSuccess
+    // Update UI with success
+    await handleGitHubAuthSuccess(result.user.login);
   } catch (error) {
     console.error('[Side Panel] GitHub sign-in error:', error);
     showToast(`Failed to sign in: ${error.message}`, 'error');

@@ -17,8 +17,8 @@ export class GitHubOAuth {
 
   /**
    * Initiate GitHub OAuth flow
-   * Opens authorization popup and stores state
-   * @returns {Promise<void>}
+   * Uses chrome.identity.launchWebAuthFlow for proper OAuth handling
+   * @returns {Promise<Object>} User data with token
    */
   static async authorize() {
     try {
@@ -40,9 +40,30 @@ export class GitHubOAuth {
         state: state
       });
 
-      // Open OAuth popup
-      await OAuthService.openAuthPopup(authUrl);
-      console.log('[GitHubOAuth] Authorization popup opened');
+      console.log('[GitHubOAuth] Launching web auth flow');
+
+      // Launch OAuth flow using Chrome Identity API
+      const redirectUrl = await OAuthService.launchWebAuthFlow(authUrl);
+
+      // Parse the redirect URL to extract code and state
+      const url = new URL(redirectUrl);
+      const code = url.searchParams.get('code');
+      const returnedState = url.searchParams.get('state');
+      const error = url.searchParams.get('error');
+
+      if (error) {
+        throw new Error(`OAuth error: ${error}`);
+      }
+
+      if (!code || !returnedState) {
+        throw new Error('Missing authorization code or state in redirect URL');
+      }
+
+      // Handle the callback (exchange code for token)
+      const result = await this.handleCallback(code, returnedState);
+
+      console.log('[GitHubOAuth] Authorization successful');
+      return result;
     } catch (error) {
       console.error('[GitHubOAuth] Authorization failed:', error);
       throw error;

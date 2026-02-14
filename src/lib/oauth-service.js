@@ -36,17 +36,28 @@ export class OAuthService {
   }
 
   /**
-   * Open OAuth popup window
+   * Launch OAuth flow using Chrome Identity API
    * @param {string} authUrl - Complete authorization URL
-   * @returns {Promise<Window>} Popup window reference
+   * @param {boolean} interactive - Whether to show UI (default: true)
+   * @returns {Promise<string>} Redirect URL with authorization code
    */
-  static async openAuthPopup(authUrl) {
-    return chrome.windows.create({
-      url: authUrl,
-      type: 'popup',
-      width: 600,
-      height: 700,
-      focused: true
+  static async launchWebAuthFlow(authUrl, interactive = true) {
+    return new Promise((resolve, reject) => {
+      chrome.identity.launchWebAuthFlow(
+        {
+          url: authUrl,
+          interactive: interactive
+        },
+        (redirectUrl) => {
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message));
+          } else if (!redirectUrl) {
+            reject(new Error('No redirect URL returned'));
+          } else {
+            resolve(redirectUrl);
+          }
+        }
+      );
     });
   }
 
