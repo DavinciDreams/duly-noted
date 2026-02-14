@@ -9,10 +9,14 @@ import { GITHUB_OAUTH_CONFIG as GITHUB_CONFIG, validateOAuthConfig } from '../co
 export class GitHubOAuth {
   /**
    * Get redirect URI for OAuth callback
+   * For chrome.identity.launchWebAuthFlow, use the chromiumapp.org format
    * @returns {string} Redirect URI
    */
   static getRedirectUri() {
-    return chrome.runtime.getURL('src/oauth/oauth-callback.html');
+    // Get the extension ID
+    const extensionId = chrome.runtime.id;
+    // Use the chromiumapp.org format required by launchWebAuthFlow
+    return `https://${extensionId}.chromiumapp.org/`;
   }
 
   /**

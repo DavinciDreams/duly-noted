@@ -11,15 +11,26 @@
  * 3. Run: npm run build:config
  */
 
-// Import runtime config (generated from .env by build script)
+// Load runtime config (generated from .env by build script)
+// We fetch it instead of using import assertions for better browser compatibility
 let runtimeConfig = {};
-try {
-  // Try to load runtime config
-  const configModule = await import('./runtime-config.json', { assert: { type: 'json' } });
-  runtimeConfig = configModule.default || configModule;
-} catch (error) {
-  console.warn('[OAuth Config] No runtime config found. Run `npm run build:config` to generate it.');
+
+async function loadRuntimeConfig() {
+  try {
+    const response = await fetch(chrome.runtime.getURL('src/config/runtime-config.json'));
+    if (!response.ok) {
+      throw new Error(`Failed to load runtime config: ${response.status}`);
+    }
+    runtimeConfig = await response.json();
+    console.log('[OAuth Config] Runtime config loaded successfully');
+  } catch (error) {
+    console.warn('[OAuth Config] No runtime config found. Run `npm run build:config` to generate it.');
+    console.warn('[OAuth Config] Error:', error.message);
+  }
 }
+
+// Load config immediately
+await loadRuntimeConfig();
 
 // GitHub OAuth Configuration
 export const GITHUB_OAUTH_CONFIG = {

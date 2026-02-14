@@ -44,6 +44,8 @@ function loadEnv() {
 function generateConfig() {
   const env = loadEnv();
 
+  console.log('Loaded env:', env);
+
   const config = {
     github: {
       clientId: env.GITHUB_CLIENT_ID || 'YOUR_GITHUB_CLIENT_ID',
