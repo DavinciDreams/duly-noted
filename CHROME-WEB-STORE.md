@@ -14,7 +14,7 @@
 **Name:** Duly Noted
 
 **Summary (132 characters max):**
-Capture voice notes with real-time transcription. Send to GitHub Issues, Projects, or Notion. Never lose a great idea again.
+capture creativity
 
 **Description (full):**
 ```
@@ -136,7 +136,7 @@ You need to provide **at least 1** screenshot (max 5):
 
 **Small Promo Tile (440x280):**
 - Eye-catching graphic representing the extension
-- Include icon and tagline: "Voice to Text, Ideas to Action"
+- Include icon and tagline: "capture creativity"
 
 **Large Promo Tile (920x680):**
 - Showcase key features with visuals
