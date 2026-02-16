@@ -8,8 +8,8 @@ import os
 # Define icon sizes needed for Chrome extension
 SIZES = [16, 48, 128]
 
-# Source logo file
-source_logo = os.path.join('..', 'assets', 'logo only.png')
+# Source logo file (transparent background for better visibility)
+source_logo = os.path.join('..', 'assets', 'favicon logo no background.png')
 
 # Open and process the source image
 try:
