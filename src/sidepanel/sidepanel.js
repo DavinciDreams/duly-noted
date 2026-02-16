@@ -333,10 +333,17 @@ async function actuallyStartRecording() {
     transcriptionService.onError = (error, type) => {
       console.error('[Side Panel] Transcription error:', error, type);
 
+      // Stop recording on error
+      if (isRecording) {
+        stopRecording();
+      }
+
       if (type === 'not-allowed') {
         showToast('Microphone access denied. Please allow microphone access in your browser settings or site permissions.', 'error');
       } else if (type === 'no-speech') {
         showToast('No speech detected. Please try again.', 'warning');
+      } else if (type === 'network') {
+        showToast('Network error. Web Speech API may not be supported in this browser. Try Chrome or Edge.', 'error');
       } else {
         showToast(`Error: ${error.message}`, 'error');
       }

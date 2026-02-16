@@ -108,21 +108,8 @@ export class TranscriptionService {
 
       this.onError?.(new Error(event.message || event.error), event.error);
 
-      // Auto-retry on network errors only
-      if (event.error === 'network' && this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        this._isListening = true; // Re-enable for retry
-        console.log(`[Transcription] Retrying... (${this.retryCount}/${this.maxRetries})`);
-
-        setTimeout(() => {
-          try {
-            this.recognition?.start();
-          } catch (err) {
-            console.error('[Transcription] Retry failed:', err);
-            this._isListening = false;
-          }
-        }, this.retryDelayMs * this.retryCount);
-      }
+      // Don't auto-retry - let user manually retry
+      // Auto-retry was causing infinite loops on persistent errors
     };
 
     // Handle end (for continuous mode, restart)
