@@ -341,9 +341,14 @@ async function actuallyStartRecording() {
       if (type === 'not-allowed') {
         showToast('Microphone access denied. Please allow microphone access in your browser settings or site permissions.', 'error');
       } else if (type === 'no-speech') {
-        showToast('No speech detected. Please try again.', 'warning');
+        // Check if Brave - this often happens in Brave due to privacy blocking
+        if (TranscriptionService.isBrave()) {
+          showToast('Brave browser blocks Web Speech API. Please use Chrome or Edge for voice recording.', 'error');
+        } else {
+          showToast('No speech detected. Please speak clearly and try again.', 'warning');
+        }
       } else if (type === 'network') {
-        showToast('Network error. Web Speech API may not be supported in this browser. Try Chrome or Edge.', 'error');
+        showToast('Network error. Web Speech API requires internet connection. If using Brave, please switch to Chrome or Edge.', 'error');
       } else {
         showToast(`Error: ${error.message}`, 'error');
       }
@@ -1113,6 +1118,11 @@ function showToast(message, type = 'info', duration = 3000) {
 
 async function init() {
   console.log('[Side Panel] Initializing...');
+
+  // Check if running in Brave and show warning
+  if (TranscriptionService.isBrave()) {
+    showToast('⚠️ Brave browser blocks Web Speech API. Voice recording may not work. Please use Chrome or Edge for best experience.', 'warning', 8000);
+  }
 
   // Load initial data
   await loadRecentNotes();

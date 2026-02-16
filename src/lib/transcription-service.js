@@ -36,6 +36,13 @@ export class TranscriptionService {
   }
 
   /**
+   * Check if running in Brave browser
+   */
+  static isBrave() {
+    return navigator.brave && typeof navigator.brave.isBrave === 'function';
+  }
+
+  /**
    * Request microphone permission explicitly
    */
   async requestPermission() {
