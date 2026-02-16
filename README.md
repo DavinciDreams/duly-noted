@@ -1,6 +1,6 @@
 # Duly Noted 🎤
 
-**Capture voice notes with real-time transcription. Send to GitHub Issues, GitHub Projects, or Notion. Never lose a great idea again.**
+**capture creativity**
 
 A Chrome extension that lets you quickly capture voice notes using Web Speech API for real-time transcription. Instantly send notes to your favorite productivity tools or save them locally.
 
