@@ -9,7 +9,7 @@ import os
 SIZES = [16, 48, 128]
 
 # Source logo file (transparent background for better visibility)
-source_logo = os.path.join('..', 'assets', 'new no background.png')
+source_logo = os.path.join('..', 'assets', 'newnewwhite.png')
 
 # Open and process the source image
 try:

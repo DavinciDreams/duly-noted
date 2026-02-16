@@ -103,11 +103,15 @@ export class TranscriptionService {
       // Ignore aborted errors (they happen when we manually stop)
       if (event.error === 'aborted') return;
 
+      // Stop listening on error to prevent infinite restart loop
+      this._isListening = false;
+
       this.onError?.(new Error(event.message || event.error), event.error);
 
-      // Auto-retry on network errors
+      // Auto-retry on network errors only
       if (event.error === 'network' && this.retryCount < this.maxRetries) {
         this.retryCount++;
+        this._isListening = true; // Re-enable for retry
         console.log(`[Transcription] Retrying... (${this.retryCount}/${this.maxRetries})`);
 
         setTimeout(() => {
@@ -115,6 +119,7 @@ export class TranscriptionService {
             this.recognition?.start();
           } catch (err) {
             console.error('[Transcription] Retry failed:', err);
+            this._isListening = false;
           }
         }, this.retryDelayMs * this.retryCount);
       }
