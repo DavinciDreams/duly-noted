@@ -137,6 +137,7 @@ function handleStartTranscription(message) {
 function handleStopTranscription(message) {
   console.log('[Offscreen] Stopping transcription...');
 
+  // Set isListening to false BEFORE stopping to prevent auto-restart in onend handler
   isListening = false;
 
   if (recognition) {

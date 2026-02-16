@@ -167,6 +167,9 @@ export class TranscriptionService {
 
     console.log('[Transcription] Stopping...');
 
+    // Set _isListening to false BEFORE stopping to prevent auto-restart in onend handler
+    this._isListening = false;
+
     if (this.recognition) {
       try {
         this.recognition.stop();
@@ -176,7 +179,6 @@ export class TranscriptionService {
       }
     }
 
-    this._isListening = false;
     this.onStop?.();
   }
 
