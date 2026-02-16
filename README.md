@@ -71,6 +71,22 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 - **Smart detection** - finds all accessible databases and pages
 - **Clickable history** - links open Notion pages in new tabs
 
+## 🌐 Browser Compatibility
+
+**✅ Fully Supported:**
+- Google Chrome (recommended)
+- Microsoft Edge
+
+**⚠️ Limited Support:**
+- Brave Browser - Requires disabling shields for Web Speech API
+  - Go to `brave://settings/shields`
+  - Under "Sites that can always use Google services" add this extension
+  - Or use Chrome/Edge for the best experience
+
+**❌ Not Supported:**
+- Firefox - Does not support Web Speech API
+- Safari - Limited Web Speech API support
+
 ## 🚀 Quick Start
 
 ### Installation

@@ -343,12 +343,16 @@ async function actuallyStartRecording() {
       } else if (type === 'no-speech') {
         // Check if Brave - this often happens in Brave due to privacy blocking
         if (TranscriptionService.isBrave()) {
-          showToast('Brave browser blocks Web Speech API. Please use Chrome or Edge for voice recording.', 'error');
+          showToast('Brave blocks Web Speech API. Fix: brave://settings/shields → Allow Google login for this extension.', 'error', 10000);
         } else {
           showToast('No speech detected. Please speak clearly and try again.', 'warning');
         }
       } else if (type === 'network') {
-        showToast('Network error. Web Speech API requires internet connection. If using Brave, please switch to Chrome or Edge.', 'error');
+        if (TranscriptionService.isBrave()) {
+          showToast('Network blocked by Brave. Fix: brave://settings/shields → Allow Google login. Or use Chrome/Edge.', 'error', 10000);
+        } else {
+          showToast('Network error. Web Speech API requires internet connection.', 'error');
+        }
       } else {
         showToast(`Error: ${error.message}`, 'error');
       }
@@ -1121,7 +1125,7 @@ async function init() {
 
   // Check if running in Brave and show warning
   if (TranscriptionService.isBrave()) {
-    showToast('⚠️ Brave browser blocks Web Speech API. Voice recording may not work. Please use Chrome or Edge for best experience.', 'warning', 8000);
+    showToast('⚠️ Brave may block Web Speech API. To enable: brave://settings/shields → Allow Google login. Or use Chrome/Edge.', 'warning', 10000);
   }
 
   // Load initial data
