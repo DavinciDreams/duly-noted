@@ -191,7 +191,9 @@ export class TranscriptionService {
    * Clean up resources
    */
   dispose() {
-    this.stop();
+    if (this._isListening) {
+      this.stop();
+    }
     this.onInterimTranscript = null;
     this.onFinalTranscript = null;
     this.onError = null;
