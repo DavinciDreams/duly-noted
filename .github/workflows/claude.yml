@@ -12,15 +12,11 @@ on:
 
 jobs:
   claude:
-    # SECURITY: Only allow repository owner to trigger Claude
-    # Check the comment/issue author, not the workflow actor (which is claude[bot])
     if: |
-      (
-        (github.event_name == 'issue_comment' && github.event.comment.user.login == github.repository_owner && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review_comment' && github.event.comment.user.login == github.repository_owner && contains(github.event.comment.body, '@claude')) ||
-        (github.event_name == 'pull_request_review' && github.event.review.user.login == github.repository_owner && contains(github.event.review.body, '@claude')) ||
-        (github.event_name == 'issues' && github.event.issue.user.login == github.repository_owner && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
-      )
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
     permissions:
       contents: write        # Allows git push, commits, file changes
