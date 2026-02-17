@@ -245,6 +245,9 @@ const DEFAULT_SETTINGS = {
   // UI
   lastDestination: null, // Remember last used destination
   theme: 'auto', // 'light' | 'dark' | 'auto'
+
+  // AI
+  aiSummaryEnabled: true, // Enable AI-powered capture analysis
 };
 
 /**

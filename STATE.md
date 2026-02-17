@@ -58,8 +58,11 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - Console log interception (start monitoring → fetch logs → badge with counts)
 - GitHub Issue attachments (screenshots uploaded to .github/screenshots/, element table, console code blocks)
 - Notion attachments (screenshots via Notion File Upload API as image blocks, element info as code blocks)
-- AI smart title (Chrome Prompt API multimodal with heuristic fallback)
-- Smart title auto-fill (element name + hostname, transcription first line, or date fallback)
+- AI Summary system (Chrome Prompt API — description, suggested tags, source citation, console summary)
+- AI auto-fill (populates note box when empty, shows in card when user has typed)
+- AI tag suggestions (auto-populate GitHub Issue labels)
+- Smart title auto-fill (AI title → element name + hostname → transcription first line → date fallback)
+- Notion console log blocks (AI-summarized + raw log entries)
 
 ### Known Issues
 - Element selector overlay uses position:absolute — breaks on pages with CSS transform on body
@@ -71,6 +74,46 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - Dropdown keyboard navigation not implemented (arrow keys, Enter/Space)
 
 ### Recent Changes
+
+#### 2026-02-17 - AI Summary System
+
+**Goal**: Replace limited AI title-only generation with comprehensive AI Summary that analyzes all captures, generates descriptions, suggests tags, cites sources, and summarizes console logs.
+
+**Files Modified (4):**
+
+1. `src/lib/storage.js`
+   - Added `aiSummaryEnabled: true` to `DEFAULT_SETTINGS`
+
+2. `src/sidepanel/sidepanel.html`
+   - Added `#aiSummaryCard` div (glass card with header, content, tags areas) after `#attachmentsPreview`
+   - Added AI Summary settings toggle (checkbox) before Recording section
+
+3. `src/sidepanel/sidepanel.css`
+   - Added `.ai-summary-card`, `.ai-summary-header`, `.ai-summary-label`, `.ai-summary-content`
+   - Added `.ai-summary-tags`, `.ai-tag` (pill-shaped tag badges)
+   - Added `.ai-summary-source` (citation link style)
+   - Added `.ai-loading` with `.spinner` animation + `@keyframes spin`
+
+4. `src/sidepanel/sidepanel.js`
+   - Added state: `aiSummary`, `aiSummaryDebounceTimer`
+   - Added element refs: `aiSummaryToggle`, `aiSummaryCard`, `aiSummaryContent`, `aiSummaryTags`
+   - Replaced `tryAIDescription()` with `generateAISummary()` — sends all context (screenshot, element, console, transcription, URL) to Gemini Nano, returns structured JSON
+   - Added `triggerAISummary()` — 800ms debounce wrapper
+   - Added `renderAISummaryUI()` — renders loading/done/error states in AI Summary card
+   - Added `applyAISummaryAutoFill()` — fills note box if empty, otherwise shows in card only
+   - Added `escapeHtml()` — XSS prevention for AI output
+   - Added dismiss button handler
+   - Updated capture handlers: screenshot, element, console all call `triggerAISummary()`
+   - Updated `loadSettings()` and `handleSaveSettings()` for `aiSummaryEnabled` toggle
+   - Updated `showGitHubIssueForm()` — AI title + AI suggested tags pre-fill labels
+   - Updated `handleCreateIssue()` — appends source citation to body
+   - Updated `showGitHubProjectForm()` — AI title pre-fill
+   - Updated `sendToNotion()` — AI title fallback, console log blocks added
+   - Updated `resetRecordingUI()` — clears AI state and debounce timer
+
+**Status:** Code complete, needs manual verification.
+
+---
 
 #### 2026-02-17 - Home Screen Reorganization
 
