@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Duly Noted",
-  "description": "Capture voice notes with real-time transcription. Send to GitHub Issues, Projects, Notion, or save as drafts. Never lose a great idea again.",
+  "description": "Capture voice notes with real-time transcription. Send to GitHub Issues, Projects, Notion, or save as drafts.",
   "version": "1.1.0",
   "icons": {
     "16": "icons/icon-16.png",
