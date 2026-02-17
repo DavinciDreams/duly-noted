@@ -38,8 +38,9 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 
 ### Design
 - **Dark glassmorphic UI** with frosted-glass cards and subtle gradients
+- **Circular radial audio visualizer** - 180 frequency bars around a center ring, reactive to your voice in real-time
 - **Light mode support** via `prefers-color-scheme`
-- **Smooth animations** - waveform visualizer, pulse rings, spring-eased toasts
+- **Smooth animations** - brand gradient coloring (teal-to-green), spring-eased toasts
 - **Accessible** - focus-visible outlines, reduced-motion support, high contrast text
 
 ## Browser Compatibility
@@ -65,7 +66,18 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 3. Confirm the permissions
 4. Pin the extension to your toolbar
 
-**For Development:**
+**Friends & Beta Testers (from zip):**
+1. Download the latest `duly-noted-v*-friends.zip` from [Releases](https://github.com/DavinciDreams/duly-noted/releases)
+2. Unzip to a folder (e.g. `C:\duly-noted` or `~/duly-noted`)
+3. Open Chrome and go to `chrome://extensions/`
+4. Enable **Developer mode** (toggle in top-right)
+5. Click **Load unpacked** and select the unzipped folder
+6. Pin the extension to your toolbar
+7. Click the Duly Noted icon, then go to **Settings** to connect your GitHub and/or Notion accounts
+
+> **How it works:** The friends zip includes a public key in the manifest that gives everyone the same extension ID. This means OAuth "just works" — no need to create your own GitHub App, Notion integration, or Cloudflare Worker. You authenticate with *your own* GitHub/Notion accounts through the shared OAuth flow. Your tokens are stored locally and never shared.
+
+**For Development (from source):**
 1. Clone this repository
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable "Developer mode" (toggle in top-right)
@@ -198,13 +210,19 @@ duly-noted/
 3. Install dependencies: `npm install`
 4. Load the extension in Chrome (see Installation for Development above)
 
-### Packaging for Chrome Web Store
+### Packaging
 
+**For Chrome Web Store:**
 ```
 npm run package
 ```
+Creates `duly-noted-v{version}.zip` for Chrome Web Store submission.
 
-This creates `duly-noted-v{version}.zip` containing only the files needed for Chrome Web Store submission (manifest, icons, src/).
+**For friends/beta testers:**
+```
+npm run package -- --friends
+```
+Creates `duly-noted-v{version}-friends.zip` with a public key injected into the manifest. This ensures every unpacked install gets the same extension ID, so the shared OAuth apps work without any per-user setup.
 
 ### Debugging
 
@@ -252,6 +270,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ---
 
-**Version:** 1.1.0 | **Updated:** 2026-02-16
+**Version:** 1.1.0 | **Updated:** 2026-02-17
 
 Made with Claude Code
