@@ -318,7 +318,9 @@ async function handleRecordButtonClick() {
 }
 
 // Detect if we should use whisper WASM instead of Web Speech API
-const useWhisperWasm = !TranscriptionService.isSupported();
+// Brave exposes webkitSpeechRecognition but blocks the network requests,
+// so we must also check for Brave explicitly
+const useWhisperWasm = !TranscriptionService.isSupported() || TranscriptionService.isBrave();
 
 async function startRecording() {
   console.log('[Side Panel] Starting recording...', useWhisperWasm ? '(Whisper WASM)' : '(Web Speech API)');
@@ -529,6 +531,8 @@ async function stopRecording() {
 
   try {
     // Stop transcription service
+    // Keep a reference so we can wait for whisper's final result
+    const stoppingService = transcriptionService;
     if (transcriptionService) {
       if (transcriptionService.isListening()) {
         transcriptionService.stop();
@@ -557,6 +561,13 @@ async function stopRecording() {
     const existingInterim = transcriptionText.querySelector('.interim-text');
     if (existingInterim) {
       existingInterim.remove();
+    }
+
+    // If using whisper WASM, wait for the final result to arrive
+    // (whisper processes audio in batches, so the result comes a few seconds after stop)
+    if (useWhisperWasm && stoppingService?.waitForFinalResult) {
+      recordingStatus.querySelector('.status-text').textContent = 'Processing audio...';
+      await stoppingService.waitForFinalResult();
     }
 
     // Get final transcription
