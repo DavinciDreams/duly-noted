@@ -255,6 +255,49 @@ export class GitHubService {
   }
 
   /**
+   * Upload an image to a GitHub repository
+   * @param {string} owner - Repository owner
+   * @param {string} repo - Repository name
+   * @param {string} imageDataUrl - Base64 data URL (data:image/png;base64,...)
+   * @param {string} filename - Filename for the image
+   * @returns {Promise<string>} Raw URL for the uploaded image
+   */
+  static async uploadImage(owner, repo, imageDataUrl, filename) {
+    const base64Content = imageDataUrl.replace(/^data:image\/\w+;base64,/, '');
+    const path = `.github/screenshots/${filename}`;
+
+    // Get the default branch
+    const repoInfo = await this.apiRequest(`/repos/${owner}/${repo}`);
+    const branch = repoInfo.default_branch || 'main';
+
+    // Check if file already exists (to get its SHA for updates)
+    let existingSha = null;
+    try {
+      const existing = await this.apiRequest(`/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
+      existingSha = existing.sha;
+    } catch {
+      // File doesn't exist yet
+    }
+
+    const body = {
+      message: `Add screenshot: ${filename}`,
+      content: base64Content,
+      branch: branch
+    };
+
+    if (existingSha) {
+      body.sha = existingSha;
+    }
+
+    await this.apiRequest(`/repos/${owner}/${repo}/contents/${path}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+
+    return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${path}`;
+  }
+
+  /**
    * Search repositories by name
    * @param {string} query - Search query
    * @param {Array} repositories - Repository list to search within

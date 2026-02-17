@@ -2,26 +2,45 @@
 
 ## Architecture Overview
 
-Chrome Manifest V3 side panel extension. Captures voice notes via Web Speech API, transcribes in real-time, and sends to GitHub Issues, GitHub Projects, Notion, or saves as local drafts.
+Chrome Manifest V3 side panel extension. Captures voice notes via Web Speech API, transcribes in real-time, and sends to GitHub Issues, GitHub Projects, Notion, or saves as local drafts. Now includes **Page Context** features: screenshot capture, element selection, and console log interception that attach to GitHub Issues/Notion pages.
+
+### Message Flow (Page Context)
+```
+Side Panel → chrome.tabs.captureVisibleTab() → Screenshot stored in memory
+Side Panel → chrome.tabs.sendMessage() → Content Script (element selection / console logs)
+Content Script → chrome.runtime.sendMessage() → Service Worker → Side Panel
+Side Panel → GitHubService.uploadImage() → repo Contents API → raw.githubusercontent.com URL
+Side Panel → NotionService.uploadImage() → Notion File Upload API → file_upload image block
+Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (screenshot to clipboard)
+```
 
 ## File Inventory
 
 ### Core Files
-- `manifest.json` - Chrome MV3 manifest, v1.1.0
-- `src/sidepanel/sidepanel.html` - Main side panel UI (6 screens)
-- `src/sidepanel/sidepanel.css` - All styles (dark glassmorphic theme)
-- `src/sidepanel/sidepanel.js` - UI controller (recording, destinations, settings, history)
+- `manifest.json` - Chrome MV3 manifest, v1.1.0, permissions: tabs, activeTab, scripting, clipboardWrite
+- `src/sidepanel/sidepanel.html` - Main side panel UI (6 screens + Page Context toolbar)
+- `src/sidepanel/sidepanel.css` - All styles (dark glassmorphic theme + attachment components)
+- `src/sidepanel/sidepanel.js` - UI controller (recording, destinations, settings, history, page context capture)
 - `src/permission/permission.html` - Microphone permission popup (inline styles)
 - `src/permission/permission.js` - Permission request handler
-- `src/service-worker/service-worker.js` - Background service worker
+- `src/service-worker/service-worker.js` - Background service worker (message forwarding, clipboard routing)
+- `src/offscreen/offscreen.html` - Offscreen document for audio recording + clipboard write
+- `src/offscreen/offscreen.js` - Offscreen handler (audio recording + COPY_IMAGE_TO_CLIPBOARD)
 - `src/lib/storage.js` - Chrome storage abstraction
 - `src/lib/transcription-service.js` - Web Speech API wrapper
 - `src/lib/github-oauth.js` - GitHub OAuth flow
-- `src/lib/github-service.js` - GitHub API client
+- `src/lib/github-service.js` - GitHub API client (+ uploadImage to repo)
 - `src/lib/github-cache.js` - Recently used repos/projects cache
 - `src/lib/notion-oauth.js` - Notion OAuth flow
-- `src/lib/notion-service.js` - Notion API client
+- `src/lib/notion-service.js` - Notion API client (+ uploadImage via File Upload API, createImageBlock)
 - `src/utils/helpers.js` - Utility functions (formatRelativeTime, getDestinationIcon, truncateText, generateUUID)
+
+### Content Scripts (NEW - 2026-02-17)
+- `src/content-scripts/namespace.js` - `window.DulyNoted = window.DulyNoted || {};`
+- `src/content-scripts/element-inspector.js` - DOM inspection: getElementData, getXPath, getCssSelector, computedStyles
+- `src/content-scripts/element-selector.js` - Hover highlight + click selection with overlay/tooltip/border
+- `src/content-scripts/console-interceptor.js` - Console override, error/rejection capture, log categorization
+- `src/content-scripts/main.js` - ContentScriptCoordinator: message handler for all content script operations
 
 ## Current Status
 
@@ -34,8 +53,82 @@ Chrome Manifest V3 side panel extension. Captures voice notes via Web Speech API
 - History list with detail modal
 - Settings (GitHub OAuth, Notion OAuth, developer mode token, max duration)
 - Toast notification system
+- Screenshot capture (captureVisibleTab → thumbnail preview → clipboard copy)
+- Element selection (crosshair hover → click → element data badge)
+- Console log interception (start monitoring → fetch logs → badge with counts)
+- GitHub Issue attachments (screenshots uploaded to .github/screenshots/, element table, console code blocks)
+- Notion attachments (screenshots via Notion File Upload API as image blocks, element info as code blocks)
+- AI smart title (Chrome Prompt API multimodal with heuristic fallback)
+- Smart title auto-fill (element name + hostname, transcription first line, or date fallback)
+
+### Known Issues
+- Element selector overlay uses position:absolute — breaks on pages with CSS transform on body
+- Stack trace in console interceptor points to interceptor, not actual caller
+- Tab closure during element selection leaves cursor:crosshair permanently
+- Notion image content type hardcoded to image/png
+- XPath breaks if element.id contains double quotes
+- CSS selector breaks on Tailwind-style special characters in class names
+- Dropdown keyboard navigation not implemented (arrow keys, Enter/Space)
 
 ### Recent Changes
+
+#### 2026-02-17 - Page Context Features (Screenshot, Element Selection, Console Logs)
+
+**Files Created (5):**
+- `src/content-scripts/namespace.js` - DulyNoted namespace initialization
+- `src/content-scripts/element-inspector.js` - DOM element inspection class
+- `src/content-scripts/element-selector.js` - Hover/click element selection with overlay UI
+- `src/content-scripts/console-interceptor.js` - Console method override + error capture
+- `src/content-scripts/main.js` - ContentScriptCoordinator message handler
+
+**Files Modified (7):**
+
+1. `manifest.json`
+   - Added permissions: `tabs`, `activeTab`, `scripting`, `clipboardWrite`
+   - Added `<all_urls>` to host_permissions
+   - Added `content_scripts` section loading all 5 files at `document_end`
+
+2. `src/service-worker/service-worker.js`
+   - Added message forwarding: ELEMENT_SELECTED, ELEMENT_SELECTION_CANCELLED, NEW_CONSOLE_LOG, CONTENT_SCRIPT_INITIALIZED
+   - Added COPY_IMAGE_TO_CLIPBOARD handler → ensureOffscreenDocument → forward to offscreen
+   - Changed offscreen reasons from `['USER_MEDIA']` to `['USER_MEDIA', 'CLIPBOARD']`
+
+3. `src/offscreen/offscreen.js`
+   - Added COPY_IMAGE_TO_CLIPBOARD case → handleCopyImageToClipboard()
+   - Uses navigator.clipboard.write with ClipboardItem
+
+4. `src/lib/github-service.js`
+   - Added `uploadImage(owner, repo, imageDataUrl, filename)` static method
+   - PUTs base64 content to `/repos/:owner/:repo/contents/.github/screenshots/{filename}`
+   - Returns `raw.githubusercontent.com` URL
+
+5. `src/lib/notion-service.js`
+   - Added `uploadImage(imageDataUrl, filename)` → Notion File Upload API (POST create → POST send binary)
+   - Added `createImageBlock(fileUploadId)` → returns Notion image block object
+
+6. `src/sidepanel/sidepanel.html`
+   - Added Page Context toolbar (#pageToolsBar) with Screenshot, Element, Console buttons
+   - Added #attachmentsPreview area
+   - Added #issueAttachments section in GitHub Issue form
+
+7. `src/sidepanel/sidepanel.css`
+   - Added styles: .page-tools-bar, .page-tools-actions, .attachments-preview, .attachment-item, .attachment-badge, .attachments-readonly
+
+8. `src/sidepanel/sidepanel.js` (largest change)
+   - New state: capturedScreenshots[], capturedElement, capturedConsoleLogs[], consoleMonitoringTabId
+   - New functions: handleCaptureScreenshot, handleSelectElement, handleCaptureConsole, ensureContentScriptInjected, copyScreenshotToClipboard, tryAIDescription, generateSmartTitle, uploadScreenshotsToRepo, buildAttachmentMarkdown, updateAttachmentsPreview, renderAttachmentsInto
+   - Modified: resetRecordingUI (clears attachments), post-recording flow (shows pageToolsBar), showGitHubIssueForm (pre-fills title, shows attachments), handleCreateIssue (uploads screenshots, builds enriched body), sendToNotion (uploads via Notion API, adds image/code blocks)
+   - Added chrome.runtime.onMessage listener for ELEMENT_SELECTED and ELEMENT_SELECTION_CANCELLED
+
+**QA Bugs Found & Fixed:**
+- CRIT-1: COPY_IMAGE_TO_CLIPBOARD was not routed from service worker to offscreen document → Added handler
+- IMP-2: Screenshots stored full dataUrl in chrome.storage.local (quota risk) → Changed to metadata only
+- IMP-4: GET_CONSOLE_LOGS missing chrome.runtime.lastError check → Added error handling
+- IMP-6: Backticks in element outerHTML break markdown code fences → Replaced with single quotes
+
+**Status:** Code complete, not yet tested in Chrome. Needs manual verification per plan step 12.
+
+---
 
 #### 2026-02-16 - Dark Glassmorphic Redesign
 

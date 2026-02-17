@@ -14,12 +14,30 @@
     "sidePanel",
     "windows",
     "identity",
-    "offscreen"
+    "offscreen",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "clipboardWrite"
   ],
   "host_permissions": [
     "https://api.github.com/*",
     "https://api.notion.com/*",
-    "https://duly-noted-auth.agentstarter.workers.dev/*"
+    "https://duly-noted-auth.agentstarter.workers.dev/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/content-scripts/namespace.js",
+        "src/content-scripts/element-inspector.js",
+        "src/content-scripts/element-selector.js",
+        "src/content-scripts/console-interceptor.js",
+        "src/content-scripts/main.js"
+      ],
+      "run_at": "document_end"
+    }
   ],
   "background": {
     "service_worker": "src/service-worker/service-worker.js"

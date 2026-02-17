@@ -54,8 +54,8 @@ async function ensureOffscreenDocument() {
   try {
     await chrome.offscreen.createDocument({
       url: 'src/offscreen/offscreen.html',
-      reasons: ['USER_MEDIA'],
-      justification: 'Recording audio and using Web Speech API for transcription'
+      reasons: ['USER_MEDIA', 'CLIPBOARD'],
+      justification: 'Recording audio, Web Speech API transcription, and clipboard operations'
     });
 
     offscreenCreated = true;
@@ -117,6 +117,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'CONTENT_SCRIPT_INITIALIZED':
       // Content script ready — no action needed
       break;
+
+    // Clipboard write — ensure offscreen doc exists then forward
+    case 'COPY_IMAGE_TO_CLIPBOARD':
+      handleCopyToClipboard(message, sendResponse);
+      return true;
 
     default:
       sendResponse({ success: true });
@@ -216,6 +221,32 @@ async function handleStopWhisper(message, sendResponse) {
       success: false,
       error: error.message
     });
+  }
+}
+
+// ============================================================================
+// Clipboard Write (via offscreen document)
+// ============================================================================
+
+async function handleCopyToClipboard(message, sendResponse) {
+  try {
+    const created = await ensureOffscreenDocument();
+    if (!created) {
+      sendResponse({ success: false, error: 'Failed to create offscreen document' });
+      return;
+    }
+
+    // Forward to offscreen document
+    chrome.runtime.sendMessage({
+      type: 'COPY_IMAGE_TO_CLIPBOARD',
+      target: 'offscreen',
+      dataUrl: message.dataUrl
+    });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    console.error('[Service Worker] Clipboard write error:', error);
+    sendResponse({ success: false, error: error.message });
   }
 }
 

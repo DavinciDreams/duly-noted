@@ -99,6 +99,21 @@ const maxDurationInput = document.getElementById('maxDuration');
 // Theme switcher
 const themeSwitcher = document.getElementById('themeSwitcher');
 
+// Page Context Tools elements
+const pageToolsBar = document.getElementById('pageToolsBar');
+const captureScreenshotBtn = document.getElementById('captureScreenshotBtn');
+const selectElementBtn = document.getElementById('selectElementBtn');
+const captureConsoleBtn = document.getElementById('captureConsoleBtn');
+const attachmentsPreview = document.getElementById('attachmentsPreview');
+const issueAttachments = document.getElementById('issueAttachments');
+const issueAttachmentsPreview = document.getElementById('issueAttachmentsPreview');
+
+// Page Context state
+let capturedScreenshots = [];
+let capturedElement = null;
+let capturedConsoleLogs = [];
+let consoleMonitoringTabId = null;
+
 // GitHub OAuth elements
 const githubOAuthSection = document.getElementById('githubOAuthSection');
 const githubNotConnected = document.getElementById('githubNotConnected');
@@ -261,6 +276,23 @@ githubProjectSearch.addEventListener('blur', () => {
 
 // Note: OAuth callback is now handled directly by chrome.identity.launchWebAuthFlow
 // No need for message listeners
+
+// Page Context Tools
+captureScreenshotBtn.addEventListener('click', handleCaptureScreenshot);
+selectElementBtn.addEventListener('click', handleSelectElement);
+captureConsoleBtn.addEventListener('click', handleCaptureConsole);
+
+// Listen for messages from content scripts (via service worker)
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'ELEMENT_SELECTED') {
+    capturedElement = message.data;
+    updateAttachmentsPreview();
+    showToast('Element captured!', 'success');
+  }
+  if (message.type === 'ELEMENT_SELECTION_CANCELLED') {
+    showToast('Element selection cancelled', 'info');
+  }
+});
 
 // History Detail Modal
 closeModalBtn.addEventListener('click', hideHistoryDetailModal);
@@ -579,6 +611,9 @@ async function stopRecording() {
     // Show post-recording actions (edit + continue) instead of auto-navigating
     postRecordingActions.style.display = 'flex';
 
+    // Show page context tools for attaching screenshots/elements/console
+    pageToolsBar.style.display = 'block';
+
   } catch (error) {
     console.error('[Side Panel] Error stopping recording:', error);
     showToast(`Error: ${error.message}`, 'error');
@@ -612,6 +647,14 @@ function resetRecordingUI() {
   transcriptionContainer.style.display = 'none';
   postRecordingActions.style.display = 'none';
   recordingStatus.querySelector('.status-text').textContent = 'Ready to Record';
+
+  // Clear page context attachments
+  capturedScreenshots = [];
+  capturedElement = null;
+  capturedConsoleLogs = [];
+  consoleMonitoringTabId = null;
+  pageToolsBar.style.display = 'none';
+  attachmentsPreview.innerHTML = '';
 }
 
 // ============================================================================
@@ -1480,10 +1523,39 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
   try {
     console.log('[Side Panel] Sending note to Notion');
 
-    // Generate title from first line of transcription
+    // Generate title from first line of transcription or smart default
     const lines = currentTranscription.trim().split('\n');
-    const title = truncateText(lines[0], 100) || 'Voice Note';
+    const title = truncateText(lines[0], 100) || generateSmartTitle() || 'Voice Note';
     const content = currentTranscription;
+
+    // Upload screenshots to Notion if any
+    const imageBlocks = [];
+    if (capturedScreenshots.length > 0) {
+      showToast('Uploading screenshots to Notion...', 'info');
+      for (const screenshot of capturedScreenshots) {
+        try {
+          const filename = `screenshot_${screenshot.timestamp}.png`;
+          const fileUploadId = await NotionService.uploadImage(screenshot.dataUrl, filename);
+          imageBlocks.push(NotionService.createImageBlock(fileUploadId));
+        } catch (err) {
+          console.error('[Notion] Screenshot upload failed:', err);
+        }
+      }
+    }
+
+    // Build element info block if captured
+    const elementBlocks = [];
+    if (capturedElement) {
+      const elementText = `Element: <${capturedElement.tagName.toLowerCase()}> ${capturedElement.idAttribute ? '#' + capturedElement.idAttribute : ''}\nCSS: ${capturedElement.cssSelector}\nXPath: ${capturedElement.xpath}\nSize: ${Math.round(capturedElement.position.width)}x${Math.round(capturedElement.position.height)}`;
+      elementBlocks.push({
+        object: 'block',
+        type: 'code',
+        code: {
+          rich_text: [{ type: 'text', text: { content: elementText } }],
+          language: 'plain text'
+        }
+      });
+    }
 
     let createdPage;
 
@@ -1517,7 +1589,9 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
               }
             ]
           }
-        }
+        },
+        ...imageBlocks,
+        ...elementBlocks
       ];
 
       createdPage = await NotionService.createDatabaseEntry(parent.database_id, properties, children);
@@ -1550,7 +1624,9 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
                 }
               ]
             }
-          }
+          },
+          ...imageBlocks,
+          ...elementBlocks
         ]
       };
 
@@ -1781,6 +1857,18 @@ async function showGitHubIssueForm() {
     // Pre-fill issue body with transcription
     issueBody.value = currentTranscription;
 
+    // Pre-fill title with smart default if we have context
+    if (!issueTitle.value.trim()) {
+      issueTitle.value = generateSmartTitle();
+    }
+
+    // Show attachment preview if any exist
+    const hasAttachments = capturedScreenshots.length > 0 || capturedElement || capturedConsoleLogs.length > 0;
+    issueAttachments.style.display = hasAttachments ? 'block' : 'none';
+    if (hasAttachments) {
+      renderAttachmentsInto(issueAttachmentsPreview);
+    }
+
     // Load repositories
     showToast('Loading repositories...', 'info');
     repositories = await GitHubService.fetchRepositories();
@@ -1903,6 +1991,11 @@ async function handleCreateIssue() {
       return;
     }
 
+    // Auto-fill title if empty and we have context
+    if (!issueTitle.value.trim() && (capturedElement || capturedScreenshots.length > 0)) {
+      issueTitle.value = generateSmartTitle();
+    }
+
     if (!issueTitle.value.trim()) {
       showToast('Please enter an issue title', 'error');
       issueTitle.focus();
@@ -1916,6 +2009,22 @@ async function handleCreateIssue() {
     // Parse repository owner and name
     const [owner, repo] = selectedRepo.full_name.split('/');
 
+    // Upload screenshots to repo if any
+    let screenshotUrls = [];
+    if (capturedScreenshots.length > 0) {
+      createIssueBtn.textContent = 'Uploading screenshots...';
+      screenshotUrls = await uploadScreenshotsToRepo(owner, repo);
+    }
+
+    // Build enriched body with attachments
+    let body = issueBody.value.trim();
+    const attachmentMarkdown = buildAttachmentMarkdown(screenshotUrls);
+    if (attachmentMarkdown) {
+      body = body ? body + '\n\n---\n\n' + attachmentMarkdown : attachmentMarkdown;
+    }
+
+    createIssueBtn.textContent = 'Creating issue...';
+
     // Parse labels (comma-separated)
     const labels = issueLabels.value
       .split(',')
@@ -1925,7 +2034,7 @@ async function handleCreateIssue() {
     // Create issue data
     const issueData = {
       title: issueTitle.value.trim(),
-      body: issueBody.value.trim(),
+      body: body,
       labels: labels.length > 0 ? labels : undefined
     };
 
@@ -2239,6 +2348,432 @@ function resetProjectForm() {
   projectItemTitle.value = '';
   projectItemBody.value = '';
   selectedProject = null;
+}
+
+// ============================================================================
+// Page Context: Screenshot, Element Selection, Console Logs
+// ============================================================================
+
+/**
+ * Capture a screenshot of the active tab
+ */
+async function handleCaptureScreenshot() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      showToast('No active tab found', 'error');
+      return;
+    }
+
+    // chrome:// and edge:// pages can't be captured
+    if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+      showToast('Cannot capture restricted pages', 'error');
+      return;
+    }
+
+    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+
+    capturedScreenshots.push({
+      dataUrl,
+      timestamp: Date.now(),
+      tabUrl: tab.url,
+      tabTitle: tab.title
+    });
+
+    // Save metadata to local storage (not the dataUrl — too large for storage quota)
+    await chrome.storage.local.set({
+      lastCaptureMetadata: {
+        timestamp: Date.now(),
+        tabUrl: tab.url,
+        tabTitle: tab.title,
+        count: capturedScreenshots.length
+      }
+    });
+
+    updateAttachmentsPreview();
+    showToast('Screenshot captured!', 'success');
+
+    // Copy to clipboard via offscreen document
+    copyScreenshotToClipboard(dataUrl);
+
+    // Try AI description if available
+    tryAIDescription(dataUrl);
+  } catch (error) {
+    console.error('[Screenshot] Capture failed:', error);
+    showToast(`Screenshot failed: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Start element selection on the active tab
+ */
+async function handleSelectElement() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      showToast('No active tab found', 'error');
+      return;
+    }
+
+    if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+      showToast('Cannot select elements on restricted pages', 'error');
+      return;
+    }
+
+    await ensureContentScriptInjected(tab.id);
+
+    chrome.tabs.sendMessage(tab.id, { type: 'START_ELEMENT_SELECTION' }, (response) => {
+      if (chrome.runtime.lastError) {
+        showToast('Could not connect to page. Try refreshing.', 'error');
+      } else {
+        showToast('Click an element on the page to capture it', 'info');
+      }
+    });
+  } catch (error) {
+    console.error('[Element Selection] Failed:', error);
+    showToast(`Element selection failed: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Capture console logs from the active tab
+ */
+async function handleCaptureConsole() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      showToast('No active tab found', 'error');
+      return;
+    }
+
+    if (tab.url?.startsWith('chrome://') || tab.url?.startsWith('edge://')) {
+      showToast('Cannot capture console on restricted pages', 'error');
+      return;
+    }
+
+    await ensureContentScriptInjected(tab.id);
+
+    if (consoleMonitoringTabId === tab.id) {
+      // Already monitoring — fetch logs
+      chrome.tabs.sendMessage(tab.id, { type: 'GET_CONSOLE_LOGS' }, (response) => {
+        if (chrome.runtime.lastError) {
+          showToast('Lost connection to page. Try refreshing.', 'error');
+          consoleMonitoringTabId = null;
+          return;
+        }
+        if (response?.success) {
+          capturedConsoleLogs = response.logs || [];
+          updateAttachmentsPreview();
+          showToast(`${capturedConsoleLogs.length} console entries captured`, 'success');
+        }
+      });
+    } else {
+      // Start monitoring
+      chrome.tabs.sendMessage(tab.id, { type: 'START_CONSOLE_MONITORING' }, (response) => {
+        if (response?.success) {
+          consoleMonitoringTabId = tab.id;
+          showToast('Console monitoring started. Click again to capture logs.', 'info');
+        } else {
+          showToast('Could not start console monitoring. Try refreshing.', 'error');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[Console] Capture failed:', error);
+    showToast(`Console capture failed: ${error.message}`, 'error');
+  }
+}
+
+/**
+ * Ensure content scripts are injected in the given tab
+ */
+async function ensureContentScriptInjected(tabId) {
+  return new Promise((resolve) => {
+    chrome.tabs.sendMessage(tabId, { type: 'PING' }, (response) => {
+      if (chrome.runtime.lastError || !response?.success) {
+        // Inject content scripts programmatically
+        chrome.scripting.executeScript({
+          target: { tabId },
+          files: [
+            'src/content-scripts/namespace.js',
+            'src/content-scripts/element-inspector.js',
+            'src/content-scripts/element-selector.js',
+            'src/content-scripts/console-interceptor.js',
+            'src/content-scripts/main.js'
+          ]
+        }).then(() => resolve()).catch(() => resolve());
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * Copy screenshot to clipboard via offscreen document
+ */
+async function copyScreenshotToClipboard(dataUrl) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'COPY_IMAGE_TO_CLIPBOARD',
+      target: 'offscreen',
+      dataUrl: dataUrl
+    });
+  } catch (error) {
+    console.error('[Clipboard] Copy failed:', error);
+  }
+}
+
+/**
+ * Try to generate AI description using Chrome's Prompt API (multimodal)
+ */
+async function tryAIDescription(screenshotDataUrl) {
+  try {
+    if (!self.ai?.languageModel) return;
+
+    const capabilities = await self.ai.languageModel.capabilities();
+    if (capabilities.available === 'no') return;
+
+    const session = await self.ai.languageModel.create();
+
+    // Convert data URL to ImageBitmap for multimodal input
+    const response = await fetch(screenshotDataUrl);
+    const blob = await response.blob();
+    const imageBitmap = await createImageBitmap(blob);
+
+    const result = await session.prompt([
+      { type: 'text', value: 'Analyze this screenshot. Provide: 1) A short issue title (under 60 chars) 2) A brief description of what you see (any bugs, errors, or UI issues). Format as JSON: {"title": "...", "description": "..."}' },
+      { type: 'image', value: imageBitmap }
+    ]);
+
+    try {
+      const parsed = JSON.parse(result);
+      if (parsed.title && !issueTitle.value.trim()) {
+        issueTitle.value = parsed.title;
+      }
+    } catch {
+      // AI response wasn't valid JSON — ignore
+    }
+
+    session.destroy();
+  } catch {
+    // Prompt API not available or failed — graceful fallback (no-op)
+  }
+}
+
+/**
+ * Generate a smart title based on captured context
+ */
+function generateSmartTitle() {
+  if (capturedElement) {
+    const tag = capturedElement.tagName.toLowerCase();
+    const id = capturedElement.idAttribute ? `#${capturedElement.idAttribute}` : '';
+    try {
+      const hostname = capturedScreenshots[0]?.tabUrl
+        ? new URL(capturedScreenshots[0].tabUrl).hostname
+        : '';
+      return `[Bug] ${tag}${id} on ${hostname}`.slice(0, 60);
+    } catch {
+      return `[Bug] ${tag}${id}`.slice(0, 60);
+    }
+  }
+
+  if (capturedScreenshots.length > 0 && capturedScreenshots[0].tabUrl) {
+    try {
+      const hostname = new URL(capturedScreenshots[0].tabUrl).hostname;
+      return `Issue on ${hostname}`;
+    } catch {
+      return '';
+    }
+  }
+
+  if (currentTranscription) {
+    const firstLine = currentTranscription.trim().split('\n')[0];
+    return truncateText(firstLine, 60);
+  }
+
+  return '';
+}
+
+/**
+ * Upload all captured screenshots to a GitHub repo
+ * @returns {Promise<string[]>} Array of raw.githubusercontent.com URLs
+ */
+async function uploadScreenshotsToRepo(owner, repo) {
+  const urls = [];
+  for (const screenshot of capturedScreenshots) {
+    try {
+      const filename = `screenshot_${screenshot.timestamp}.png`;
+      const url = await GitHubService.uploadImage(owner, repo, screenshot.dataUrl, filename);
+      urls.push(url);
+    } catch (error) {
+      console.error('[GitHub] Screenshot upload failed:', error);
+    }
+  }
+  return urls;
+}
+
+/**
+ * Build markdown sections for attachments
+ * @param {string[]} screenshotUrls - URLs for uploaded screenshots
+ * @returns {string} Markdown content
+ */
+function buildAttachmentMarkdown(screenshotUrls) {
+  const sections = [];
+
+  // Screenshots section
+  if (screenshotUrls.length > 0) {
+    const images = screenshotUrls.map((url, i) => `![Screenshot ${i + 1}](${url})`).join('\n\n');
+    sections.push(`## Screenshots\n\n${images}`);
+  }
+
+  // Element information section
+  if (capturedElement) {
+    const el = capturedElement;
+    const tag = el.tagName.toLowerCase();
+    const id = el.idAttribute || '—';
+    const classes = (typeof el.className === 'string' ? el.className : '') || '—';
+    const css = el.cssSelector || '—';
+    const xpath = el.xpath || '—';
+    const pos = el.position;
+    const size = pos ? `${Math.round(pos.width)}x${Math.round(pos.height)}` : '—';
+
+    const htmlSnippet = (el.outerHTML || '').slice(0, 200).replace(/`/g, "'");
+
+    const table = [
+      '| Property | Value |',
+      '|----------|-------|',
+      `| Tag | \`<${tag}>\` |`,
+      `| ID | \`${id}\` |`,
+      `| Classes | \`${classes}\` |`,
+      `| CSS Selector | \`${css}\` |`,
+      `| XPath | \`${xpath}\` |`,
+      `| Size | ${size} |`,
+    ].join('\n');
+
+    sections.push(`## Element Information\n\n${table}\n\n<details><summary>HTML Snippet</summary>\n\n\`\`\`html\n${htmlSnippet}\n\`\`\`\n\n</details>`);
+  }
+
+  // Console logs section
+  if (capturedConsoleLogs.length > 0) {
+    const errors = capturedConsoleLogs.filter(l => l.level === 'error');
+    const warnings = capturedConsoleLogs.filter(l => l.level === 'warn');
+    const infos = capturedConsoleLogs.filter(l => l.level === 'info' || l.level === 'log');
+
+    let logContent = '';
+
+    if (errors.length > 0) {
+      const errorLines = errors.slice(0, 20).map(l => {
+        const time = new Date(l.timestamp).toLocaleTimeString();
+        return `[${time}] ${l.message}`;
+      }).join('\n');
+      logContent += `### Errors (${errors.length})\n\n\`\`\`\n${errorLines}\n\`\`\`\n\n`;
+    }
+
+    if (warnings.length > 0) {
+      const warnLines = warnings.slice(0, 10).map(l => {
+        const time = new Date(l.timestamp).toLocaleTimeString();
+        return `[${time}] ${l.message}`;
+      }).join('\n');
+      logContent += `### Warnings (${warnings.length})\n\n\`\`\`\n${warnLines}\n\`\`\`\n\n`;
+    }
+
+    if (infos.length > 0) {
+      const infoLines = infos.slice(0, 10).map(l => {
+        const time = new Date(l.timestamp).toLocaleTimeString();
+        return `[${time}] ${l.message}`;
+      }).join('\n');
+      logContent += `### Info/Logs (${infos.length})\n\n\`\`\`\n${infoLines}\n\`\`\`\n\n`;
+    }
+
+    sections.push(`## Console Logs\n\n${logContent}`);
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
+ * Update the attachments preview in the page tools bar
+ */
+function updateAttachmentsPreview() {
+  renderAttachmentsInto(attachmentsPreview);
+}
+
+/**
+ * Render attachment previews into a container element
+ */
+function renderAttachmentsInto(container) {
+  container.innerHTML = '';
+
+  // Screenshot thumbnails
+  capturedScreenshots.forEach((screenshot, index) => {
+    const item = document.createElement('div');
+    item.className = 'attachment-item';
+
+    const img = document.createElement('img');
+    img.src = screenshot.dataUrl;
+    img.alt = `Screenshot ${index + 1}`;
+    item.appendChild(img);
+
+    // Only add remove button if container is NOT readonly
+    if (!container.classList.contains('attachments-readonly')) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.title = 'Remove screenshot';
+      removeBtn.addEventListener('click', () => {
+        capturedScreenshots.splice(index, 1);
+        updateAttachmentsPreview();
+      });
+      item.appendChild(removeBtn);
+    }
+
+    container.appendChild(item);
+  });
+
+  // Element badge
+  if (capturedElement) {
+    const badge = document.createElement('div');
+    badge.className = 'attachment-badge';
+    badge.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg> Element`;
+
+    if (!container.classList.contains('attachments-readonly')) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.addEventListener('click', () => {
+        capturedElement = null;
+        updateAttachmentsPreview();
+      });
+      badge.appendChild(removeBtn);
+    }
+
+    container.appendChild(badge);
+  }
+
+  // Console logs badge
+  if (capturedConsoleLogs.length > 0) {
+    const errors = capturedConsoleLogs.filter(l => l.level === 'error').length;
+    const warns = capturedConsoleLogs.filter(l => l.level === 'warn').length;
+    const badge = document.createElement('div');
+    badge.className = 'attachment-badge';
+    let label = `Console (${capturedConsoleLogs.length})`;
+    if (errors > 0) label = `Console: ${errors} errors`;
+    badge.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> ${label}`;
+
+    if (!container.classList.contains('attachments-readonly')) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.textContent = '\u00d7';
+      removeBtn.addEventListener('click', () => {
+        capturedConsoleLogs = [];
+        updateAttachmentsPreview();
+      });
+      badge.appendChild(removeBtn);
+    }
+
+    container.appendChild(badge);
+  }
 }
 
 // ============================================================================

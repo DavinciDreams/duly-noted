@@ -193,6 +193,73 @@ export class NotionService {
   }
 
   /**
+   * Upload an image to Notion via File Upload API
+   * @param {string} imageDataUrl - Base64 data URL (data:image/png;base64,...)
+   * @param {string} filename - Filename for the image
+   * @returns {Promise<string>} File upload ID for use in image blocks
+   */
+  static async uploadImage(imageDataUrl, filename) {
+    const { notionToken } = await OAuthService.getTokens('notion');
+    if (!notionToken) {
+      throw new Error('Not authenticated with Notion. Please sign in first.');
+    }
+
+    // Step 1: Create file upload object
+    const createResponse = await this.request('/v1/file_uploads', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: filename,
+        content_type: 'image/png'
+      })
+    });
+
+    const fileUploadId = createResponse.id;
+
+    // Step 2: Send the binary file data
+    const blobResponse = await fetch(imageDataUrl);
+    const blob = await blobResponse.blob();
+
+    const formData = new FormData();
+    formData.append('file', blob, filename);
+
+    const uploadResponse = await fetch(`https://api.notion.com/v1/file_uploads/${fileUploadId}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${notionToken}`,
+        'Notion-Version': '2022-06-28'
+      },
+      body: formData
+    });
+
+    if (!uploadResponse.ok) {
+      const errorData = await uploadResponse.json().catch(() => ({}));
+      throw new Error(
+        `Notion file upload error: ${uploadResponse.status} - ${errorData.message || 'Unknown error'}`
+      );
+    }
+
+    return fileUploadId;
+  }
+
+  /**
+   * Create a Notion image block from a file upload ID
+   * @param {string} fileUploadId - File upload ID from uploadImage()
+   * @returns {Object} Notion image block object
+   */
+  static createImageBlock(fileUploadId) {
+    return {
+      object: 'block',
+      type: 'image',
+      image: {
+        type: 'file_upload',
+        file_upload: {
+          id: fileUploadId
+        }
+      }
+    };
+  }
+
+  /**
    * Get user info (bot user)
    * @returns {Promise<Object>} User object
    */

@@ -28,6 +28,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleStopTranscription(message);
       break;
 
+    case 'COPY_IMAGE_TO_CLIPBOARD':
+      handleCopyImageToClipboard(message);
+      break;
+
     default:
       console.warn('[Offscreen] Unknown message type:', message.type);
   }
@@ -146,6 +150,30 @@ function handleStopTranscription(message) {
     } catch (error) {
       console.error('[Offscreen] Error stopping recognition:', error);
     }
+  }
+}
+
+/**
+ * Copy image data URL to clipboard
+ */
+async function handleCopyImageToClipboard(message) {
+  try {
+    const response = await fetch(message.dataUrl);
+    const blob = await response.blob();
+    await navigator.clipboard.write([
+      new ClipboardItem({ [blob.type]: blob })
+    ]);
+    chrome.runtime.sendMessage({
+      type: 'CLIPBOARD_WRITE_COMPLETE',
+      success: true
+    }).catch(() => {});
+  } catch (error) {
+    console.error('[Offscreen] Clipboard write error:', error);
+    chrome.runtime.sendMessage({
+      type: 'CLIPBOARD_WRITE_COMPLETE',
+      success: false,
+      error: error.message
+    }).catch(() => {});
   }
 }
 
