@@ -55,19 +55,22 @@ export class WhisperTranscriptionService {
           break;
 
         case 'WHISPER_TRANSCRIPTION_RESULT':
-          if (message.transcript) {
+          console.log('[WhisperTranscription] Raw result:', JSON.stringify(message));
+          if (message.transcript && message.transcript.trim()) {
             console.log('[WhisperTranscription] Result:', message.transcript);
             if (message.isFinal) {
               this.onFinalTranscript?.(message.transcript, message.confidence || 0.9);
             } else {
               this.onInterimTranscript?.(message.transcript, message.confidence || 0.5);
             }
-          }
-          // If we were stopping and got the final result, resolve the promise and clean up
-          if (this._isStopping) {
-            console.log('[WhisperTranscription] Got final result after stop, cleaning up');
-            this._resolveFinalResult?.();
-            this._removeListener();
+            // Only resolve the promise when we get a non-empty result
+            if (this._isStopping) {
+              console.log('[WhisperTranscription] Got final result after stop, cleaning up');
+              this._resolveFinalResult?.();
+              this._removeListener();
+            }
+          } else {
+            console.log('[WhisperTranscription] Ignoring empty result');
           }
           break;
 
@@ -83,7 +86,19 @@ export class WhisperTranscriptionService {
         case 'WHISPER_TRANSCRIPTION_STOPPED':
           console.log('[WhisperTranscription] Stopped confirmation from offscreen');
           this._isListening = false;
-          // Don't clean up yet - a final RESULT may still arrive after STOPPED
+          // A final RESULT may still arrive after STOPPED, so wait a grace period
+          if (this._isStopping) {
+            // Replace the 15s timeout with a shorter 8s grace period
+            // since we know the stop was acknowledged
+            if (this._cleanupTimer) {
+              clearTimeout(this._cleanupTimer);
+            }
+            this._cleanupTimer = setTimeout(() => {
+              console.log('[WhisperTranscription] Grace period after STOPPED - resolving');
+              this._resolveFinalResult?.();
+              this._removeListener();
+            }, 8000);
+          }
           break;
 
         case 'WHISPER_VOICE_ACTIVITY':
@@ -117,8 +132,8 @@ export class WhisperTranscriptionService {
    * that whisper produces after the audio stream stops.
    */
   stop() {
-    if (!this._isListening) {
-      console.warn('[WhisperTranscription] Not listening');
+    if (this._isStopping) {
+      console.warn('[WhisperTranscription] Already stopping');
       return;
     }
 

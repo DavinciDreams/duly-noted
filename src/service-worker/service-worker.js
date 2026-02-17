@@ -92,7 +92,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleStopWhisper(message, sendResponse);
       return true; // Async
 
-    // Messages from offscreen to relay to side panel
+    // Messages from offscreen document — relay to side panel
     case 'TRANSCRIPTION_RESULT':
     case 'TRANSCRIPTION_ERROR':
     case 'TRANSCRIPTION_STARTED':
@@ -102,8 +102,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'WHISPER_TRANSCRIPTION_STARTED':
     case 'WHISPER_TRANSCRIPTION_STOPPED':
     case 'WHISPER_VOICE_ACTIVITY':
-      // These are sent by offscreen document and relayed to side panel
-      // The side panel will receive them via its own message listener
+      // Forward to all extension pages (sidepanel) since runtime.sendMessage
+      // from offscreen only reaches the service worker, not other contexts
+      chrome.runtime.sendMessage(message).catch(() => {});
+      break;
+
+    // Messages from content scripts — forward to side panel
+    case 'ELEMENT_SELECTED':
+    case 'ELEMENT_SELECTION_CANCELLED':
+    case 'NEW_CONSOLE_LOG':
+      chrome.runtime.sendMessage(message).catch(() => {});
+      break;
+
+    case 'CONTENT_SCRIPT_INITIALIZED':
+      // Content script ready — no action needed
       break;
 
     default:

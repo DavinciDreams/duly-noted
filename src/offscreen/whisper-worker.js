@@ -34,11 +34,14 @@ async function initTranscriber() {
     onReady: () => {
       console.log('[Whisper Worker] Transcriber ready');
     },
-    onSegment: (segment) => {
-      console.log('[Whisper Worker] Segment:', segment);
+    onSegment: (result) => {
+      console.log('[Whisper Worker] Segment:', result);
+      // result shape: { result: { language }, segment: { text, offsets, timestamps } }
+      const text = result?.segment?.text?.trim() || '';
+      console.log('[Whisper Worker] Transcribed text:', JSON.stringify(text));
       chrome.runtime.sendMessage({
         type: 'WHISPER_TRANSCRIPTION_RESULT',
-        transcript: segment.text?.trim() || '',
+        transcript: text,
         isFinal: true,
         confidence: 0.9
       }).catch(err => console.error('[Whisper Worker] Error sending result:', err));

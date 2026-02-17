@@ -467,20 +467,11 @@ async function actuallyStartRecording() {
       }
 
       if (type === 'not-allowed') {
-        showToast('Microphone access denied. Allow at chrome://settings/content/microphone → add https://klpjlccklddpdaageeclbnpfehieclka.chromiumapp.org/', 'error', 8000);
+        showToast('Microphone access denied. Please allow microphone access and try again.', 'error', 8000);
       } else if (type === 'no-speech') {
-        // Check if Brave - this often happens in Brave due to privacy blocking
-        if (TranscriptionService.isBrave()) {
-          showToast('Brave blocks Web Speech API. Fix: brave://settings/shields → Allow Google login for this extension.', 'error', 10000);
-        } else {
-          showToast('No speech detected. Please speak clearly and try again.', 'warning');
-        }
+        showToast('No speech detected. Please speak clearly and try again.', 'warning');
       } else if (type === 'network') {
-        if (TranscriptionService.isBrave()) {
-          showToast('Network blocked by Brave. Fix: brave://settings/shields → Allow Google login. Or use Chrome/Edge.', 'error', 10000);
-        } else {
-          showToast('Network error. Web Speech API requires internet connection.', 'error');
-        }
+        showToast('Network error. Web Speech API requires internet connection.', 'error');
       } else {
         showToast(`Error: ${error.message}`, 'error');
       }
@@ -534,7 +525,12 @@ async function stopRecording() {
     // Keep a reference so we can wait for whisper's final result
     const stoppingService = transcriptionService;
     if (transcriptionService) {
-      if (transcriptionService.isListening()) {
+      // For whisper: always call stop() even if isListening() is false,
+      // because _isListening only becomes true after the STARTED message
+      // arrives from the offscreen doc, which may be delayed during model init.
+      if (useWhisperWasm) {
+        transcriptionService.stop();
+      } else if (transcriptionService.isListening()) {
         transcriptionService.stop();
       }
       transcriptionService.dispose();
@@ -1746,9 +1742,9 @@ async function init() {
   const settings = await getSettings();
   applyTheme(settings.theme || 'auto');
 
-  // Check if running in Brave and show warning
-  if (TranscriptionService.isBrave()) {
-    showToast('⚠️ Brave may block Web Speech API. To enable: brave://settings/shields → Allow Google login. Or use Chrome/Edge.', 'warning', 10000);
+  // Log which transcription engine will be used
+  if (useWhisperWasm) {
+    console.log('[Side Panel] Whisper WASM will be used for transcription');
   }
 
   // Load initial data
