@@ -17,7 +17,11 @@ const ROOT = path.join(__dirname, '..');
 // Read version from manifest
 const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
 const version = manifest.version;
-const zipName = `duly-noted-v${version}.zip`;
+// --friends flag: injects the public key so unpacked installs get the same extension ID
+const isFriendsBuild = process.argv.includes('--friends');
+const zipName = isFriendsBuild
+  ? `duly-noted-v${version}-friends.zip`
+  : `duly-noted-v${version}.zip`;
 const zipPath = path.join(ROOT, zipName);
 
 // Files/dirs to include in the package
@@ -67,6 +71,15 @@ for (const item of INCLUDE) {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     fs.copyFileSync(src, dest);
   }
+}
+
+// For friends build, inject the public key into the staged manifest
+if (isFriendsBuild) {
+  const stagedManifestPath = path.join(staging, 'manifest.json');
+  const stagedManifest = JSON.parse(fs.readFileSync(stagedManifestPath, 'utf8'));
+  stagedManifest.key = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArN0Y8L08IuU9LIftJrBG4zCHnASvLNzd8fnBrcvanOK6H3NPg/HkIVm2EXsZxS+TcV7HcOMdCkHcl2EHO+UFJ2Gfa7HDIUycFIUwncsfYOnCip6sm0dGRmRNuPG1Dv8rg6Ab90pahIJjeodL9jGBZTQCdNzt/VyKtKanGyLgOy7EhAp6D53Trfkz8c71H0yVfNTtC2hIou6hVH/KNk2R/PxzR2l2PBeQSraiCljq9VDSAgznxrlpQ0mK5qxCEXD/cvyIjEYo+blJPmdWdXv5dZrw5MrmxqkEbT1OYcKexNweoCrTUDLsy0pks2nBlbfkgeOGU6RgnY8FlNwC6mBH4QIDAQAB';
+  fs.writeFileSync(stagedManifestPath, JSON.stringify(stagedManifest, null, 2));
+  console.log('Injected public key for consistent extension ID');
 }
 
 // Create zip using PowerShell Compress-Archive

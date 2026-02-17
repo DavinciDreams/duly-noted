@@ -6,6 +6,7 @@
 import { getDrafts, getHistory, getSettings, updateSettings, resetSettings } from '../lib/storage.js';
 import { formatRelativeTime, getDestinationIcon, truncateText } from '../utils/helpers.js';
 import { TranscriptionService } from '../lib/transcription-service.js';
+import { WhisperTranscriptionService } from '../lib/whisper-transcription-service.js';
 import { GitHubOAuth } from '../lib/github-oauth.js';
 import { GitHubService } from '../lib/github-service.js';
 import { GitHubCache } from '../lib/github-cache.js';
@@ -60,6 +61,9 @@ let timerInterval = null;
 let currentTranscription = '';
 let _previousFocus = null;
 
+// Audio visualizer instance (initialized in init())
+let visualizer = null;
+
 // ============================================================================
 // UI Elements
 // ============================================================================
@@ -105,6 +109,7 @@ const githubUsername = document.getElementById('githubUsername');
 const githubAvatar = document.getElementById('githubAvatar');
 const developerModeToggle = document.getElementById('developerModeToggle');
 const githubDeveloperSection = document.getElementById('githubDeveloperSection');
+const testGitHubBtn = document.getElementById('testGitHubBtn');
 
 // Notion OAuth elements
 const notionOAuthSection = document.getElementById('notionOAuthSection');
@@ -227,6 +232,7 @@ themeSwitcher.addEventListener('click', async (e) => {
 githubSignInBtn.addEventListener('click', handleGitHubSignIn);
 githubSignOutBtn.addEventListener('click', handleGitHubSignOut);
 developerModeToggle.addEventListener('change', handleDeveloperModeToggle);
+testGitHubBtn.addEventListener('click', handleTestGitHubConnection);
 
 // Notion OAuth
 notionSignInBtn.addEventListener('click', handleNotionSignIn);
@@ -311,15 +317,44 @@ async function handleRecordButtonClick() {
   }
 }
 
+// Detect if we should use whisper WASM instead of Web Speech API
+const useWhisperWasm = !TranscriptionService.isSupported();
+
 async function startRecording() {
-  console.log('[Side Panel] Starting recording...');
+  console.log('[Side Panel] Starting recording...', useWhisperWasm ? '(Whisper WASM)' : '(Web Speech API)');
 
   try {
-    // Check if Web Speech API is supported
-    if (!TranscriptionService.isSupported()) {
-      throw new Error('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');
+    if (useWhisperWasm) {
+      // Whisper WASM path - microphone permission handled in offscreen document
+      // Still need to check/request permission from sidepanel context first
+      let permissionGranted = false;
+      try {
+        const permStatus = await navigator.permissions.query({ name: 'microphone' });
+        permissionGranted = permStatus.state === 'granted';
+      } catch (e) {
+        console.log('[Side Panel] Could not query mic permission, opening popup');
+      }
+
+      if (permissionGranted) {
+        actuallyStartRecording();
+        return;
+      }
+
+      // Open permission popup
+      const permissionUrl = chrome.runtime.getURL('src/permission/permission.html');
+      await chrome.windows.create({
+        url: permissionUrl,
+        type: 'popup',
+        width: 470,
+        height: 520,
+        focused: true
+      });
+
+      showToast('Please grant microphone permission in the popup window', 'info');
+      return;
     }
 
+    // Web Speech API path (Chrome/Edge)
     // Check if microphone permission is already granted
     let permissionGranted = false;
     try {
@@ -370,12 +405,20 @@ async function actuallyStartRecording() {
     // Get settings for language
     const settings = await getSettings();
 
-    // Initialize transcription service
-    transcriptionService = new TranscriptionService({
-      language: settings.transcriptionLanguage || 'en-US',
-      continuous: true,
-      interimResults: true
-    });
+    // Initialize transcription service based on browser support
+    if (useWhisperWasm) {
+      console.log('[Side Panel] Using Whisper WASM transcription');
+      transcriptionService = new WhisperTranscriptionService({
+        language: settings.transcriptionLanguage || 'en',
+      });
+    } else {
+      console.log('[Side Panel] Using Web Speech API transcription');
+      transcriptionService = new TranscriptionService({
+        language: settings.transcriptionLanguage || 'en-US',
+        continuous: true,
+        interimResults: true
+      });
+    }
 
     // Set up event handlers
     transcriptionService.onInterimTranscript = (text, confidence) => {
@@ -452,16 +495,15 @@ async function actuallyStartRecording() {
       recordBtnText.textContent = 'Stop Recording';
       recordBtn.setAttribute('aria-label', 'Stop recording');
 
-      recordingStatus.className = 'status-recording';
-      recordingStatus.querySelector('.status-text').textContent = 'Recording... Speak now!';
+      recordingStatus.querySelector('.status-text').textContent = 'Recording...';
 
       recordingTimer.style.display = 'block';
       transcriptionContainer.style.display = 'block';
       transcriptionText.textContent = '';
       postRecordingActions.style.display = 'none';
 
-      // Activate waveform animation
-      document.querySelector('.recording-card')?.classList.add('is-recording');
+      // Start dynamic audio visualizer
+      if (visualizer) visualizer.connectAudio();
 
       // Start timer
       startTimer();
@@ -504,13 +546,12 @@ async function stopRecording() {
     recordBtnText.textContent = 'Start Recording';
     recordBtn.setAttribute('aria-label', 'Start recording');
 
-    recordingStatus.className = 'status-idle';
     recordingStatus.querySelector('.status-text').textContent = 'Recording Complete';
 
     recordingTimer.style.display = 'none';
 
-    // Deactivate waveform animation
-    document.querySelector('.recording-card')?.classList.remove('is-recording');
+    // Stop audio visualizer (returns to idle blob)
+    if (visualizer) visualizer.disconnectAudio();
 
     // Remove any interim text
     const existingInterim = transcriptionText.querySelector('.interim-text');
@@ -563,8 +604,373 @@ function resetRecordingUI() {
   transcriptionText.textContent = '';
   transcriptionContainer.style.display = 'none';
   postRecordingActions.style.display = 'none';
-  recordingStatus.className = 'status-idle';
   recordingStatus.querySelector('.status-text').textContent = 'Ready to Record';
+}
+
+// ============================================================================
+// Simplex Noise (lightweight 2D implementation for organic blob movement)
+// ============================================================================
+
+const SimplexNoise = (() => {
+  const F2 = 0.5 * (Math.sqrt(3) - 1);
+  const G2 = (3 - Math.sqrt(3)) / 6;
+  const grad3 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+
+  class Simplex {
+    constructor(seed = Math.random()) {
+      this.perm = new Uint8Array(512);
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) p[i] = i;
+      // Fisher-Yates shuffle with seed
+      let s = seed * 2147483647;
+      for (let i = 255; i > 0; i--) {
+        s = (s * 16807) % 2147483647;
+        const j = s % (i + 1);
+        [p[i], p[j]] = [p[j], p[i]];
+      }
+      for (let i = 0; i < 512; i++) this.perm[i] = p[i & 255];
+    }
+
+    noise2D(x, y) {
+      const s = (x + y) * F2;
+      const i = Math.floor(x + s), j = Math.floor(y + s);
+      const t = (i + j) * G2;
+      const x0 = x - (i - t), y0 = y - (j - t);
+      const i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1;
+      const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2;
+      const x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2;
+      const ii = i & 255, jj = j & 255;
+
+      const dot = (g, x, y) => g[0] * x + g[1] * y;
+      const contrib = (gIdx, cx, cy) => {
+        const t = 0.5 - cx * cx - cy * cy;
+        return t < 0 ? 0 : (t * t) * (t * t) * dot(grad3[gIdx % 8], cx, cy);
+      };
+
+      const n0 = contrib(this.perm[ii + this.perm[jj]], x0, y0);
+      const n1 = contrib(this.perm[ii + i1 + this.perm[jj + j1]], x1, y1);
+      const n2 = contrib(this.perm[ii + 1 + this.perm[jj + 1]], x2, y2);
+
+      return 70 * (n0 + n1 + n2); // Range roughly -1 to 1
+    }
+  }
+
+  return Simplex;
+})();
+
+// ============================================================================
+// Audio Visualizer — Circular Radial Frequency (Canvas 2D)
+// Inspired by Noel Delgado's "Audio Visualization III"
+// ============================================================================
+
+class AudioVisualizer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.noise = new SimplexNoise();
+    this.time = 0;
+    this.animId = null;
+
+    // Audio state
+    this.audioCtx = null;
+    this.analyser = null;
+    this.micStream = null;
+    this.freqData = null;
+    this.isActive = false;
+
+    // Smoothed values
+    this.smoothedAmp = 0;
+    this.smoothedBins = null; // smoothed per-bin values for fluid motion
+    this.rotation = 0; // accumulated rotation angle
+
+    // Config
+    this.BAR_COUNT = 180; // number of radial bars around the circle
+    this.BAR_WIDTH = 1.8; // base width of each bar in pixels
+
+    // Sizing
+    this._resize();
+    this._resizeObserver = new ResizeObserver(() => this._resize());
+    this._resizeObserver.observe(canvas.parentElement);
+
+    // Start idle animation
+    this._draw = this._draw.bind(this);
+    this.animId = requestAnimationFrame(this._draw);
+  }
+
+  // --- Public API ---
+
+  async connectAudio() {
+    try {
+      this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = this.audioCtx.createMediaStreamSource(this.micStream);
+
+      this.analyser = this.audioCtx.createAnalyser();
+      this.analyser.fftSize = 512;
+      this.analyser.smoothingTimeConstant = 0.75;
+      this.analyser.minDecibels = -100;
+      this.analyser.maxDecibels = -30;
+      source.connect(this.analyser);
+
+      this.freqData = new Uint8Array(this.analyser.frequencyBinCount);
+      this.smoothedBins = new Float32Array(this.BAR_COUNT);
+      this.isActive = true;
+      console.log('[Visualizer] Audio connected');
+    } catch (err) {
+      console.warn('[Visualizer] Could not connect audio:', err.message);
+    }
+  }
+
+  disconnectAudio() {
+    this.isActive = false;
+
+    if (this.audioCtx) {
+      this.audioCtx.close().catch(() => {});
+      this.audioCtx = null;
+      this.analyser = null;
+      this.freqData = null;
+    }
+    if (this.micStream) {
+      this.micStream.getTracks().forEach(t => t.stop());
+      this.micStream = null;
+    }
+    console.log('[Visualizer] Audio disconnected');
+  }
+
+  dispose() {
+    this.disconnectAudio();
+    if (this.animId) cancelAnimationFrame(this.animId);
+    this._resizeObserver.disconnect();
+  }
+
+  // --- Internal ---
+
+  _resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.parentElement.getBoundingClientRect();
+    this.canvas.width = rect.width * dpr;
+    this.canvas.height = 280 * dpr;
+    this.canvas.style.width = rect.width + 'px';
+    this.canvas.style.height = '280px';
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    this.centerX = rect.width / 2;
+    this.centerY = 140;
+    this.baseRadius = Math.min(rect.width, 280) * 0.22;
+  }
+
+  _getAudioValues() {
+    if (!this.isActive || !this.analyser || !this.freqData) {
+      return { bins: null, avgAmp: 0 };
+    }
+    this.analyser.getByteFrequencyData(this.freqData);
+    let sum = 0;
+    for (let i = 0; i < this.freqData.length; i++) sum += this.freqData[i];
+    const avgAmp = sum / this.freqData.length / 255;
+    return { bins: this.freqData, avgAmp };
+  }
+
+  // Map bar index to a frequency bin (logarithmic-ish mapping for better low-end detail)
+  _barToBin(barIdx, binCount) {
+    const t = barIdx / this.BAR_COUNT;
+    // Use a slight exponential curve so low frequencies get more visual space
+    const mapped = Math.pow(t, 1.4);
+    return Math.min(Math.floor(mapped * binCount * 0.8), binCount - 1);
+  }
+
+  // Interpolate along the brand gradient: teal(0) → mid(0.5) → green(1)
+  _gradientColor(t, alpha) {
+    // #0097b2 → #3db88a → #7ed952
+    const clamp = Math.max(0, Math.min(1, t));
+    const r = clamp < 0.5
+      ? Math.round(0 + (61 - 0) * (clamp * 2))
+      : Math.round(61 + (126 - 61) * ((clamp - 0.5) * 2));
+    const g = clamp < 0.5
+      ? Math.round(151 + (184 - 151) * (clamp * 2))
+      : Math.round(184 + (217 - 184) * ((clamp - 0.5) * 2));
+    const b = clamp < 0.5
+      ? Math.round(178 + (138 - 178) * (clamp * 2))
+      : Math.round(138 + (82 - 138) * ((clamp - 0.5) * 2));
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  _draw() {
+    this.animId = requestAnimationFrame(this._draw);
+    const ctx = this.ctx;
+    const w = this.canvas.width / (window.devicePixelRatio || 1);
+    const h = this.canvas.height / (window.devicePixelRatio || 1);
+
+    // Clear canvas fully each frame
+    ctx.clearRect(0, 0, w, h);
+
+    this.time += 0.008;
+
+    const { bins, avgAmp } = this._getAudioValues();
+
+    // Smooth overall amplitude
+    const targetAmp = this.isActive ? avgAmp : 0;
+    this.smoothedAmp += (targetAmp - this.smoothedAmp) * 0.12;
+    const amp = this.smoothedAmp;
+
+    // Slow rotation: idle = very slow, active = proportional to volume
+    this.rotation += 0.002 + (this.isActive ? amp * 0.015 : 0);
+
+    const cx = this.centerX;
+    const cy = this.centerY;
+    const radius = this.baseRadius;
+    const TWO_PI = Math.PI * 2;
+    const barCount = this.BAR_COUNT;
+    const angleStep = TWO_PI / barCount;
+
+    // Max bar length scales with available space
+    const maxBarLen = radius * 1.6;
+
+    // --- Background glow halo ---
+    const glowR = radius * (2.0 + amp * 1.2);
+    const glowGrad = ctx.createRadialGradient(cx, cy, radius * 0.5, cx, cy, glowR);
+    glowGrad.addColorStop(0, `rgba(0, 151, 178, ${0.04 + amp * 0.08})`);
+    glowGrad.addColorStop(0.5, `rgba(61, 184, 138, ${0.02 + amp * 0.05})`);
+    glowGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, TWO_PI);
+    ctx.fill();
+
+    // --- Draw radial frequency bars ---
+    for (let i = 0; i < barCount; i++) {
+      const angle = (i * angleStep) + this.rotation;
+
+      // Get frequency value for this bar
+      let barVal = 0;
+      if (bins) {
+        const binIdx = this._barToBin(i, bins.length);
+        barVal = bins[binIdx] / 255;
+      }
+
+      // Smooth per-bin values for fluid motion
+      if (this.smoothedBins) {
+        this.smoothedBins[i] += (barVal - this.smoothedBins[i]) * 0.25;
+        barVal = this.smoothedBins[i];
+      }
+
+      // Idle state: subtle noise-driven micro-bars for a "breathing" feel
+      const idleNoise = this.noise.noise2D(
+        Math.cos(angle) * 1.5 + this.time * 0.4,
+        Math.sin(angle) * 1.5 + this.time * 0.4
+      );
+      const idleVal = 0.03 + Math.abs(idleNoise) * 0.06; // subtle 3-9% height
+
+      // Final bar height: blend idle + audio
+      const val = this.isActive ? Math.max(barVal, idleVal) : idleVal;
+      const barLen = val * maxBarLen;
+
+      // Bar start/end positions (emanate outward from circle edge)
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const x1 = cx + cosA * radius;
+      const y1 = cy + sinA * radius;
+      const x2 = cx + cosA * (radius + barLen);
+      const y2 = cy + sinA * (radius + barLen);
+
+      // Color: bars transition from teal (base) to green (tip) based on height
+      const colorT = val; // short bars = teal, tall bars = green
+      const alpha = 0.4 + val * 0.55;
+      ctx.strokeStyle = this._gradientColor(colorT, alpha);
+      ctx.lineWidth = this.BAR_WIDTH + val * 1.5;
+      ctx.lineCap = 'round';
+
+      // Draw the bar
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    // --- Mirror bars inward (subtle inner reflection) ---
+    for (let i = 0; i < barCount; i++) {
+      const angle = (i * angleStep) + this.rotation;
+
+      let barVal = 0;
+      if (this.smoothedBins) {
+        barVal = this.smoothedBins[i];
+      } else {
+        const idleNoise = this.noise.noise2D(
+          Math.cos(angle) * 1.5 + this.time * 0.4,
+          Math.sin(angle) * 1.5 + this.time * 0.4
+        );
+        barVal = 0.03 + Math.abs(idleNoise) * 0.06;
+      }
+
+      const val = this.isActive ? barVal : (0.03 + Math.abs(this.noise.noise2D(
+        Math.cos(angle) * 1.5 + this.time * 0.4,
+        Math.sin(angle) * 1.5 + this.time * 0.4
+      )) * 0.06);
+
+      const innerLen = val * maxBarLen * 0.35; // inner bars are shorter
+
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      const x1 = cx + cosA * radius;
+      const y1 = cy + sinA * radius;
+      const x2 = cx + cosA * (radius - innerLen);
+      const y2 = cy + sinA * (radius - innerLen);
+
+      const alpha = 0.2 + val * 0.3;
+      ctx.strokeStyle = this._gradientColor(val * 0.5, alpha);
+      ctx.lineWidth = this.BAR_WIDTH * 0.8;
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    }
+
+    // --- Inner circle ring ---
+    const ringPulse = 1 + amp * 0.08; // subtle pulse with audio
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * ringPulse, 0, TWO_PI);
+    ctx.strokeStyle = this._gradientColor(0.2, 0.25 + amp * 0.3);
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // --- Center fill with radial gradient ---
+    const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * ringPulse);
+    centerGrad.addColorStop(0, `rgba(0, 151, 178, ${0.08 + amp * 0.12})`);
+    centerGrad.addColorStop(0.6, `rgba(61, 184, 138, ${0.04 + amp * 0.06})`);
+    centerGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = centerGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * ringPulse, 0, TWO_PI);
+    ctx.fill();
+
+    // --- Bright center dot ---
+    const dotR = 3 + amp * 4;
+    const dotGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, dotR);
+    dotGrad.addColorStop(0, `rgba(255, 255, 255, ${0.7 + amp * 0.25})`);
+    dotGrad.addColorStop(0.5, `rgba(0, 151, 178, ${0.4 + amp * 0.3})`);
+    dotGrad.addColorStop(1, 'rgba(126, 217, 82, 0)');
+    ctx.fillStyle = dotGrad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, dotR, 0, TWO_PI);
+    ctx.shadowColor = `rgba(0, 151, 178, ${0.4 + amp * 0.4})`;
+    ctx.shadowBlur = 10 + amp * 15;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // --- Outer glow ring (visible when loud) ---
+    if (amp > 0.05) {
+      const outerR = radius + maxBarLen * amp * 1.2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, outerR, 0, TWO_PI);
+      ctx.strokeStyle = this._gradientColor(0.7, amp * 0.2);
+      ctx.lineWidth = 1;
+      ctx.shadowColor = this._gradientColor(0.5, amp * 0.3);
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+  }
 }
 
 // ============================================================================
@@ -760,15 +1166,48 @@ async function loadSettings() {
 
 async function handleSaveSettings() {
   try {
+    const pat = githubTokenInput.value.trim() || null;
     const updates = {
-      githubToken: githubTokenInput.value.trim() || null,
+      githubToken: pat,
       maxRecordingDuration: parseInt(maxDurationInput.value) || 300,
     };
 
     const success = await updateSettings(updates);
 
     if (success) {
-      showToast('Settings saved!', 'success');
+      // If a PAT was provided, also store it at the top-level key
+      // so the existing API layer (GitHubOAuth.getAccessToken) can find it
+      if (pat) {
+        await chrome.storage.local.set({
+          githubToken: pat,
+          githubTokenExpiry: null,
+          githubRefreshToken: null,
+        });
+        // Fetch and store username for the connection UI
+        try {
+          const user = await GitHubService.getUser();
+          await chrome.storage.local.set({ githubUsername: user.login });
+          await updateGitHubConnectionUI();
+          updateDestinationOptions();
+          showToast(`Connected to GitHub as @${user.login}`, 'success');
+        } catch (apiError) {
+          // Token is invalid - clear it
+          await chrome.storage.local.remove(['githubToken', 'githubTokenExpiry', 'githubRefreshToken', 'githubUsername']);
+          showToast('Invalid GitHub token. Please check and try again.', 'error');
+          return;
+        }
+      } else {
+        // PAT was cleared - remove top-level token if it was a PAT
+        // (don't clear if user is OAuth-authenticated)
+        const { githubRefreshToken } = await chrome.storage.local.get('githubRefreshToken');
+        if (!githubRefreshToken) {
+          // No refresh token means this was a PAT, not OAuth - safe to clear
+          await chrome.storage.local.remove(['githubToken', 'githubTokenExpiry', 'githubRefreshToken', 'githubUsername']);
+          await updateGitHubConnectionUI();
+          updateDestinationOptions();
+        }
+        showToast('Settings saved!', 'success');
+      }
     } else {
       throw new Error('Failed to save settings');
     }
@@ -879,6 +1318,9 @@ async function handleGitHubSignOut() {
 
   try {
     await GitHubOAuth.signOut();
+    // Also clear PAT from settings if developer mode was used
+    await updateSettings({ githubToken: null });
+    githubTokenInput.value = '';
     await updateGitHubConnectionUI();
     updateDestinationOptions();
     showToast('Signed out of GitHub', 'success');
@@ -897,6 +1339,36 @@ function handleDeveloperModeToggle(e) {
   } else {
     githubOAuthSection.style.display = 'block';
     githubDeveloperSection.style.display = 'none';
+  }
+}
+
+async function handleTestGitHubConnection() {
+  const pat = githubTokenInput.value.trim();
+  if (!pat) {
+    showToast('Please enter a GitHub token first', 'error');
+    return;
+  }
+
+  testGitHubBtn.disabled = true;
+  testGitHubBtn.textContent = 'Testing...';
+
+  try {
+    // Temporarily store the token so GitHubService can use it
+    await chrome.storage.local.set({
+      githubToken: pat,
+      githubTokenExpiry: null,
+      githubRefreshToken: null,
+    });
+
+    const user = await GitHubService.getUser();
+    showToast(`Connection successful! Logged in as @${user.login}`, 'success');
+  } catch (error) {
+    // Clear the invalid token
+    await chrome.storage.local.remove(['githubToken', 'githubTokenExpiry', 'githubRefreshToken']);
+    showToast(`Connection failed: ${error.message}`, 'error');
+  } finally {
+    testGitHubBtn.disabled = false;
+    testGitHubBtn.textContent = 'Test Connection';
   }
 }
 
@@ -1277,6 +1749,12 @@ async function init() {
 
   // Update destination button states based on auth
   updateDestinationOptions();
+
+  // Initialize radial audio visualizer
+  const vizCanvas = document.getElementById('visualizer');
+  if (vizCanvas) {
+    visualizer = new AudioVisualizer(vizCanvas);
+  }
 
   // Show recording screen
   showScreen(screens.RECORDING);

@@ -83,11 +83,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleStopTranscription(message, sendResponse);
       return true; // Async
 
+    // Whisper WASM transcription (for Brave/Firefox)
+    case 'START_WHISPER_TRANSCRIPTION':
+      handleStartWhisper(message, sendResponse);
+      return true; // Async
+
+    case 'STOP_WHISPER_TRANSCRIPTION':
+      handleStopWhisper(message, sendResponse);
+      return true; // Async
+
     // Messages from offscreen to relay to side panel
     case 'TRANSCRIPTION_RESULT':
     case 'TRANSCRIPTION_ERROR':
     case 'TRANSCRIPTION_STARTED':
     case 'TRANSCRIPTION_STOPPED':
+    case 'WHISPER_TRANSCRIPTION_RESULT':
+    case 'WHISPER_TRANSCRIPTION_ERROR':
+    case 'WHISPER_TRANSCRIPTION_STARTED':
+    case 'WHISPER_TRANSCRIPTION_STOPPED':
+    case 'WHISPER_VOICE_ACTIVITY':
       // These are sent by offscreen document and relayed to side panel
       // The side panel will receive them via its own message listener
       break;
@@ -138,6 +152,54 @@ async function handleStopTranscription(message, sendResponse) {
     sendResponse({ success: true });
   } catch (error) {
     console.error('[Service Worker] Error stopping transcription:', error);
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+// ============================================================================
+// Whisper WASM Transcription (Brave/Firefox fallback)
+// ============================================================================
+
+async function handleStartWhisper(message, sendResponse) {
+  try {
+    const created = await ensureOffscreenDocument();
+    if (!created) {
+      sendResponse({
+        success: false,
+        error: 'Failed to create offscreen document'
+      });
+      return;
+    }
+
+    chrome.runtime.sendMessage({
+      type: 'START_WHISPER',
+      target: 'offscreen',
+      language: message.language || 'en'
+    });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    console.error('[Service Worker] Error starting whisper:', error);
+    sendResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+async function handleStopWhisper(message, sendResponse) {
+  try {
+    chrome.runtime.sendMessage({
+      type: 'STOP_WHISPER',
+      target: 'offscreen'
+    });
+
+    sendResponse({ success: true });
+  } catch (error) {
+    console.error('[Service Worker] Error stopping whisper:', error);
     sendResponse({
       success: false,
       error: error.message
