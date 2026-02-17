@@ -330,6 +330,11 @@ textarea:focus-visible,
   flex-shrink: 0;
 }
 
+.header-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
 .header .icon-btn {
   color: var(--text-on-brand);
   background: rgba(255, 255, 255, 0.15);
@@ -356,6 +361,16 @@ textarea:focus-visible,
 
 .screen.active {
   display: block;
+}
+
+#recordingScreen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+}
+
+#recordingScreen.active {
+  display: flex;
 }
 
 @keyframes screenFadeIn {
@@ -557,7 +572,6 @@ textarea:focus-visible,
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
 }
 
 /* ============================================================================
@@ -616,15 +630,6 @@ textarea:focus-visible,
    Transcription Display
    ============================================================================ */
 
-.transcription-container {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border-radius: var(--border-radius);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--glass-border);
-}
-
 .section-header {
   display: flex;
   align-items: center;
@@ -637,6 +642,53 @@ textarea:focus-visible,
   font-weight: 600;
   margin: 0;
 }
+
+/* Note Container (always visible on home screen) */
+
+.note-container {
+  padding: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+  width: 100%;
+}
+
+.note-box {
+  padding: var(--spacing-md);
+  background: var(--input-bg);
+  border: 1px solid var(--border-color-strong);
+  border-radius: var(--border-radius-small);
+  min-height: 60px;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text-primary);
+  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.note-box:focus {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-color: var(--color-primary);
+}
+
+.note-box:empty::before {
+  content: 'Type a note or record above...';
+  color: var(--text-disabled);
+  pointer-events: none;
+}
+
+/* Action Buttons (always visible, enabled when content exists) */
+
+.action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  width: 100%;
+}
+
+/* Transcription preview (used on destination screen) */
 
 .transcription-text {
   padding: var(--spacing-md);
@@ -652,32 +704,9 @@ textarea:focus-visible,
   color: var(--text-primary);
 }
 
-.transcription-text[contenteditable="true"] {
-  box-shadow: var(--focus-ring);
-  border-color: var(--color-primary);
-}
-
-.post-recording-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-md);
-}
-
 /* ============================================================================
-   Recent Notes
+   Notes List (used on History screen)
    ============================================================================ */
-
-.recent-notes {
-  margin-top: var(--spacing-xl);
-  padding-top: var(--spacing-xl);
-  border-top: 1px solid var(--border-color);
-}
-
-.recent-notes h3 {
-  font-size: var(--font-size-base);
-  margin-bottom: var(--spacing-md);
-}
 
 .notes-list {
   display: flex;
@@ -1542,8 +1571,9 @@ textarea:focus-visible,
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-large);
   padding: var(--spacing-lg);
-  margin-top: var(--spacing-lg);
+  margin-top: var(--spacing-md);
   box-shadow: var(--shadow-sm);
+  width: 100%;
 }
 
 .page-tools-bar .section-header {

@@ -72,6 +72,37 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 
 ### Recent Changes
 
+#### 2026-02-17 - Home Screen Reorganization
+
+**Goal**: Make all capture tools (voice, screenshot, element, console) accessible from home screen without recording first. Allow typed notes. Move history to its own screen.
+
+**Files Modified (3):**
+
+1. `src/sidepanel/sidepanel.html`
+   - Added `.header-actions` wrapper with history (clock) icon button + settings gear
+   - Replaced transcription container with always-visible, always-editable `#noteBox`
+   - Renamed "Page Context" to "Quick Capture", removed `display:none`
+   - Added always-visible `#sendBtn` + `#discardBtn` (disabled until content exists)
+   - Removed: `.recent-notes` section, `#viewAllHistoryBtn`, `#editTranscriptionBtn`, `#postRecordingActions`
+
+2. `src/sidepanel/sidepanel.css`
+   - Added: `.header-actions`, `.note-container`, `.note-box` (with `:empty::before` placeholder), `.action-buttons`
+   - Added: `#recordingScreen` flex column layout
+   - Removed: `.recent-notes`, `.post-recording-actions`, `.transcription-container` styles
+   - Modified: `.page-tools-bar` width and margin
+
+3. `src/sidepanel/sidepanel.js`
+   - Added: `historyBtn`, `noteBox`, `sendBtn`, `discardBtn` references
+   - Added: `updateActionButtons()` — enables send/discard when note text OR attachments exist
+   - Added: `noteBox` input listener to sync `currentTranscription` and update buttons
+   - Removed: `loadRecentNotes()`, `viewAllHistoryBtn`, `editTranscriptionBtn`, `postRecordingActions`, `transcriptionContainer`, `pageToolsBar` references
+   - Modified: `stopRecording()` writes to `noteBox` instead of transcriptionText, calls `updateActionButtons()`
+   - Modified: `resetRecordingUI()` clears noteBox, calls `updateActionButtons()`
+
+**Status:** Code complete, needs manual verification.
+
+---
+
 #### 2026-02-17 - Page Context Features (Screenshot, Element Selection, Console Logs)
 
 **Files Created (5):**

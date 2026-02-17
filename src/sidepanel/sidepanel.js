@@ -72,23 +72,19 @@ let visualizer = null;
 const recordBtn = document.getElementById('recordBtn');
 const recordBtnText = document.getElementById('recordBtnText');
 const settingsBtn = document.getElementById('settingsBtn');
-const viewAllHistoryBtn = document.getElementById('viewAllHistoryBtn');
+const historyBtn = document.getElementById('historyBtn');
 const backToRecordingBtn = document.getElementById('backToRecordingBtn');
 const backFromHistoryBtn = document.getElementById('backFromHistoryBtn');
 const backFromSettingsBtn = document.getElementById('backFromSettingsBtn');
-const editTranscriptionBtn = document.getElementById('editTranscriptionBtn');
-const postRecordingActions = document.getElementById('postRecordingActions');
-const continueToDestinationBtn = document.getElementById('continueToDestinationBtn');
-const discardRecordingBtn = document.getElementById('discardRecordingBtn');
+const sendBtn = document.getElementById('sendBtn');
+const discardBtn = document.getElementById('discardBtn');
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
 // Containers
 const recordingStatus = document.getElementById('recordingStatus');
 const recordingTimer = document.getElementById('recordingTimer');
-const transcriptionContainer = document.getElementById('transcriptionContainer');
-const transcriptionText = document.getElementById('transcriptionText');
-const recentNotesList = document.getElementById('recentNotesList');
+const noteBox = document.getElementById('noteBox');
 const historyList = document.getElementById('historyList');
 const destinationTranscriptionPreview = document.getElementById('destinationTranscriptionPreview');
 
@@ -100,7 +96,6 @@ const maxDurationInput = document.getElementById('maxDuration');
 const themeSwitcher = document.getElementById('themeSwitcher');
 
 // Page Context Tools elements
-const pageToolsBar = document.getElementById('pageToolsBar');
 const captureScreenshotBtn = document.getElementById('captureScreenshotBtn');
 const selectElementBtn = document.getElementById('selectElementBtn');
 const captureConsoleBtn = document.getElementById('captureConsoleBtn');
@@ -180,7 +175,7 @@ settingsBtn.addEventListener('click', () => {
   loadSettings();
 });
 
-viewAllHistoryBtn.addEventListener('click', () => {
+historyBtn.addEventListener('click', () => {
   showScreen(screens.HISTORY);
   loadHistory();
 });
@@ -192,33 +187,21 @@ backFromSettingsBtn.addEventListener('click', () => showScreen(screens.RECORDING
 // Recording
 recordBtn.addEventListener('click', handleRecordButtonClick);
 
-// Transcription editing
-editTranscriptionBtn.addEventListener('click', () => {
-  const isEditable = transcriptionText.getAttribute('contenteditable') === 'true';
-  transcriptionText.setAttribute('contenteditable', !isEditable);
-  transcriptionText.setAttribute('aria-readonly', isEditable ? 'true' : 'false');
-  editTranscriptionBtn.textContent = isEditable ? 'Edit' : 'Done';
-
-  if (!isEditable) {
-    transcriptionText.focus();
-  } else {
-    currentTranscription = transcriptionText.textContent.trim();
-  }
+// Note box input — update currentTranscription and enable/disable action buttons
+noteBox.addEventListener('input', () => {
+  currentTranscription = noteBox.textContent.trim();
+  updateActionButtons();
 });
 
-// Post-recording actions
-continueToDestinationBtn.addEventListener('click', async () => {
-  // Capture any edits the user made
-  currentTranscription = transcriptionText.textContent.trim();
-  // Ensure edit mode is off
-  transcriptionText.setAttribute('contenteditable', 'false');
-  editTranscriptionBtn.textContent = 'Edit';
+// Action buttons (always visible, enabled when content exists)
+sendBtn.addEventListener('click', async () => {
+  currentTranscription = noteBox.textContent.trim();
   await showDestinationChooser();
 });
 
-discardRecordingBtn.addEventListener('click', () => {
+discardBtn.addEventListener('click', () => {
   resetRecordingUI();
-  showToast('Recording discarded', 'info');
+  showToast('Discarded', 'info');
 });
 
 // Destination options
@@ -287,6 +270,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message.type === 'ELEMENT_SELECTED') {
     capturedElement = message.data;
     updateAttachmentsPreview();
+    updateActionButtons();
     showToast('Element captured!', 'success');
   }
   if (message.type === 'ELEMENT_SELECTION_CANCELLED') {
@@ -463,31 +447,31 @@ async function actuallyStartRecording() {
       interim.textContent = text;
 
       // Replace previous interim text
-      const existingInterim = transcriptionText.querySelector('.interim-text');
+      const existingInterim = noteBox.querySelector('.interim-text');
       if (existingInterim) {
         existingInterim.remove();
       }
-      transcriptionText.appendChild(interim);
+      noteBox.appendChild(interim);
     };
 
     transcriptionService.onFinalTranscript = (text, confidence) => {
       console.log('[Side Panel] Final transcript:', text, 'confidence:', confidence);
 
       // Remove interim text
-      const existingInterim = transcriptionText.querySelector('.interim-text');
+      const existingInterim = noteBox.querySelector('.interim-text');
       if (existingInterim) {
         existingInterim.remove();
       }
 
       // Add final text
-      if (transcriptionText.textContent) {
-        transcriptionText.textContent += ' ' + text;
+      if (noteBox.textContent) {
+        noteBox.textContent += ' ' + text;
       } else {
-        transcriptionText.textContent = text;
+        noteBox.textContent = text;
       }
 
       // Update current transcription
-      currentTranscription = transcriptionText.textContent.trim();
+      currentTranscription = noteBox.textContent.trim();
     };
 
     transcriptionService.onError = (error, type) => {
@@ -523,9 +507,7 @@ async function actuallyStartRecording() {
       recordingStatus.querySelector('.status-text').textContent = 'Recording...';
 
       recordingTimer.style.display = 'block';
-      transcriptionContainer.style.display = 'block';
-      transcriptionText.textContent = '';
-      postRecordingActions.style.display = 'none';
+      noteBox.textContent = '';
 
       // Start dynamic audio visualizer
       if (visualizer) visualizer.connectAudio();
@@ -586,7 +568,7 @@ async function stopRecording() {
     if (visualizer) visualizer.disconnectAudio();
 
     // Remove any interim text
-    const existingInterim = transcriptionText.querySelector('.interim-text');
+    const existingInterim = noteBox.querySelector('.interim-text');
     if (existingInterim) {
       existingInterim.remove();
     }
@@ -599,20 +581,17 @@ async function stopRecording() {
     }
 
     // Get final transcription
-    currentTranscription = transcriptionText.textContent.trim();
+    currentTranscription = noteBox.textContent.trim();
 
     if (!currentTranscription) {
       showToast('No speech detected. Please try again.', 'warning');
       return;
     }
 
-    showToast('Recording complete — review your transcription below', 'success');
+    showToast('Recording complete — edit your note or choose a destination', 'success');
 
-    // Show post-recording actions (edit + continue) instead of auto-navigating
-    postRecordingActions.style.display = 'flex';
-
-    // Show page context tools for attaching screenshots/elements/console
-    pageToolsBar.style.display = 'block';
+    // Enable action buttons since we now have content
+    updateActionButtons();
 
   } catch (error) {
     console.error('[Side Panel] Error stopping recording:', error);
@@ -643,9 +622,7 @@ function stopTimer() {
  */
 function resetRecordingUI() {
   currentTranscription = '';
-  transcriptionText.textContent = '';
-  transcriptionContainer.style.display = 'none';
-  postRecordingActions.style.display = 'none';
+  noteBox.textContent = '';
   recordingStatus.querySelector('.status-text').textContent = 'Ready to Record';
 
   // Clear page context attachments
@@ -653,8 +630,23 @@ function resetRecordingUI() {
   capturedElement = null;
   capturedConsoleLogs = [];
   consoleMonitoringTabId = null;
-  pageToolsBar.style.display = 'none';
   attachmentsPreview.innerHTML = '';
+
+  // Disable action buttons
+  updateActionButtons();
+}
+
+/**
+ * Enable/disable send+discard buttons based on whether there's any content.
+ * Content = text in noteBox OR captured screenshots/element/console logs.
+ */
+function updateActionButtons() {
+  const hasText = noteBox.textContent.trim().length > 0;
+  const hasAttachments = capturedScreenshots.length > 0 || capturedElement !== null || capturedConsoleLogs.length > 0;
+  const hasContent = hasText || hasAttachments;
+
+  sendBtn.disabled = !hasContent;
+  discardBtn.disabled = !hasContent;
 }
 
 // ============================================================================
@@ -1077,9 +1069,6 @@ async function saveDraft() {
       // Reset recording state and return to recording screen
       resetRecordingUI();
       showScreen(screens.RECORDING);
-
-      // Refresh recent notes
-      await loadRecentNotes();
     } else {
       throw new Error('Failed to save draft');
     }
@@ -1135,45 +1124,6 @@ async function loadHistory() {
   } catch (error) {
     console.error('[Side Panel] Error loading history:', error);
     historyList.innerHTML = '<p class="empty-state text-danger">Error loading history</p>';
-  }
-}
-
-async function loadRecentNotes() {
-  try {
-    const drafts = await getDrafts();
-    const history = await getHistory();
-
-    const allItems = [
-      ...drafts.map(d => ({ ...d, status: 'draft', destination: 'draft' })),
-      ...history
-    ];
-
-    allItems.sort((a, b) => b.timestamp - a.timestamp);
-    const recent = allItems.slice(0, 3);
-
-    if (recent.length === 0) {
-      recentNotesList.innerHTML = '<p class="empty-state">No notes yet. Start recording to create your first note!</p>';
-      return;
-    }
-
-    recentNotesList.innerHTML = recent.map(item => `
-      <div class="note-card" data-id="${item.id}">
-        <div class="note-header">
-          <span class="note-icon">${getDestinationIcon(item.destination)}</span>
-          <span class="note-title">${truncateText(item.transcription, 40)}</span>
-        </div>
-        <div class="note-meta">${formatRelativeTime(item.timestamp)}</div>
-      </div>
-    `).join('');
-
-    recentNotesList.querySelectorAll('.note-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const itemId = card.getAttribute('data-id');
-        handleHistoryItemClick(itemId, allItems);
-      });
-    });
-  } catch (error) {
-    console.error('[Side Panel] Error loading recent notes:', error);
   }
 }
 
@@ -1664,8 +1614,6 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
     resetRecordingUI();
     showScreen(screens.RECORDING);
 
-    // Reload recent notes
-    await loadRecentNotes();
   } catch (error) {
     console.error('[Side Panel] Error sending to Notion:', error);
     throw error;
@@ -1823,8 +1771,8 @@ async function init() {
     console.log('[Side Panel] Whisper WASM will be used for transcription');
   }
 
-  // Load initial data
-  await loadRecentNotes();
+  // Initialize action buttons state
+  updateActionButtons();
 
   // Update OAuth connection UIs
   await updateGitHubConnectionUI();
@@ -2073,9 +2021,8 @@ async function handleCreateIssue() {
     resetIssueForm();
     resetRecordingUI();
 
-    // Go back to recording screen and refresh history
+    // Go back to recording screen
     showScreen(screens.RECORDING);
-    await loadRecentNotes();
 
   } catch (error) {
     console.error('[GitHub Issue] Error creating issue:', error);
@@ -2329,9 +2276,8 @@ async function handleCreateProjectItem() {
     resetProjectForm();
     resetRecordingUI();
 
-    // Go back to recording screen and refresh history
+    // Go back to recording screen
     showScreen(screens.RECORDING);
-    await loadRecentNotes();
 
   } catch (error) {
     console.error('[GitHub Project] Error creating draft issue:', error);
@@ -2391,6 +2337,7 @@ async function handleCaptureScreenshot() {
     });
 
     updateAttachmentsPreview();
+    updateActionButtons();
     showToast('Screenshot captured!', 'success');
 
     // Copy to clipboard via offscreen document
@@ -2464,6 +2411,7 @@ async function handleCaptureConsole() {
         if (response?.success) {
           capturedConsoleLogs = response.logs || [];
           updateAttachmentsPreview();
+          updateActionButtons();
           showToast(`${capturedConsoleLogs.length} console entries captured`, 'success');
         }
       });
@@ -2724,6 +2672,7 @@ function renderAttachmentsInto(container) {
       removeBtn.addEventListener('click', () => {
         capturedScreenshots.splice(index, 1);
         updateAttachmentsPreview();
+        updateActionButtons();
       });
       item.appendChild(removeBtn);
     }
@@ -2744,6 +2693,7 @@ function renderAttachmentsInto(container) {
       removeBtn.addEventListener('click', () => {
         capturedElement = null;
         updateAttachmentsPreview();
+        updateActionButtons();
       });
       badge.appendChild(removeBtn);
     }
@@ -2768,6 +2718,7 @@ function renderAttachmentsInto(container) {
       removeBtn.addEventListener('click', () => {
         capturedConsoleLogs = [];
         updateAttachmentsPreview();
+        updateActionButtons();
       });
       badge.appendChild(removeBtn);
     }
