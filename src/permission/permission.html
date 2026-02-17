@@ -6,44 +6,144 @@
   <title>Microphone Permission</title>
   <style>
     body {
-      width: 400px;
-      padding: 20px;
+      width: 420px;
+      padding: 24px;
       font-family: system-ui, -apple-system, sans-serif;
-      text-align: center;
+      background: radial-gradient(ellipse at top, rgba(0, 151, 178, 0.05), transparent 60%), #0a0e14;
+      color: #e8edf2;
+      margin: 0;
     }
     h1 {
-      font-size: 24px;
-      margin-bottom: 16px;
+      font-size: 20px;
+      margin: 0 0 8px 0;
+      color: #e8edf2;
+      text-align: center;
     }
-    p {
-      color: #666;
-      margin-bottom: 24px;
+    .subtitle {
+      color: #94a3b8;
+      margin: 0 0 20px 0;
+      text-align: center;
+      font-size: 14px;
+    }
+    .grant-section {
+      text-align: center;
+      margin-bottom: 20px;
     }
     button {
-      background: #1a73e8;
+      background: linear-gradient(135deg, #0097b2, #7ed952);
       color: white;
       border: none;
       padding: 12px 24px;
-      border-radius: 4px;
+      border-radius: 12px;
       font-size: 16px;
       cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0, 151, 178, 0.3);
+      transition: all 200ms ease-out;
     }
     button:hover {
-      background: #1557b0;
+      box-shadow: 0 6px 24px rgba(0, 151, 178, 0.4);
+      transform: translateY(-1px);
     }
     .status {
-      margin-top: 16px;
+      margin-top: 12px;
       font-weight: 500;
+      text-align: center;
     }
-    .success { color: #0f9d58; }
-    .error { color: #d93025; }
+    .success { color: #7ed952; }
+    .error { color: #ef4444; }
+
+    .tip-box {
+      background: rgba(20, 30, 45, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 151, 178, 0.15);
+      border-radius: 12px;
+      padding: 14px;
+      margin-top: 16px;
+    }
+    .tip-box h2 {
+      font-size: 13px;
+      color: #7ed952;
+      margin: 0 0 8px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tip-box ol {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .tip-box li {
+      margin-bottom: 4px;
+    }
+    .tip-box code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #e8edf2;
+    }
+
+    .denied-help {
+      display: none;
+      margin-top: 16px;
+      background: rgba(239, 68, 68, 0.08);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .denied-help h2 {
+      font-size: 13px;
+      color: #ef4444;
+      margin: 0 0 8px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .denied-help ol {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+    .denied-help li {
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
-  <h1>🎤 Microphone Access Required</h1>
-  <p>Voice Starter needs permission to access your microphone for voice transcription.</p>
-  <button id="grantBtn">Grant Microphone Access</button>
-  <div id="status" class="status"></div>
+  <h1>Microphone Access Required</h1>
+  <p class="subtitle">Duly Noted needs your microphone to transcribe voice notes.</p>
+
+  <div class="grant-section">
+    <button id="grantBtn">Grant Microphone Access</button>
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="tip-box">
+    <h2>Tip: Always allow microphone</h2>
+    <ol>
+      <li>Click <strong>Grant Microphone Access</strong> above</li>
+      <li>When Chrome asks, click <strong>Allow</strong></li>
+      <li>To skip this popup in the future, go to <code>chrome://settings/content/microphone</code></li>
+      <li>Under "Allowed to use your microphone", add <code>https://klpjlccklddpdaageeclbnpfehieclka.chromiumapp.org/</code></li>
+    </ol>
+  </div>
+
+  <div id="deniedHelp" class="denied-help">
+    <h2>Permission was blocked</h2>
+    <ol>
+      <li>Click the <strong>lock icon</strong> in Chrome's address bar</li>
+      <li>Find <strong>Microphone</strong> and set it to <strong>Allow</strong></li>
+      <li>Then click <strong>Grant Microphone Access</strong> again</li>
+    </ol>
+  </div>
+
   <script src="permission.js"></script>
 </body>
 </html>

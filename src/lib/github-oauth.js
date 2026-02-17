@@ -4,7 +4,7 @@
  */
 
 import { OAuthService } from './oauth-service.js';
-import { GITHUB_OAUTH_CONFIG as GITHUB_CONFIG, validateOAuthConfig } from '../config/oauth-config.js';
+import { GITHUB_OAUTH_CONFIG as GITHUB_CONFIG, OAUTH_WORKER_URL, validateOAuthConfig } from '../config/oauth-config.js';
 
 export class GitHubOAuth {
   /**
@@ -88,12 +88,11 @@ export class GitHubOAuth {
         throw new Error('Invalid state parameter - possible CSRF attack');
       }
 
-      // Exchange code for token
+      // Exchange code for token via OAuth proxy worker
       const tokenData = await OAuthService.exchangeCodeForToken({
-        tokenUrl: GITHUB_CONFIG.tokenUrl,
+        workerUrl: OAUTH_WORKER_URL,
+        provider: 'github',
         code: code,
-        clientId: GITHUB_CONFIG.clientId,
-        clientSecret: GITHUB_CONFIG.clientSecret,
         redirectUri: this.getRedirectUri()
       });
 
@@ -179,12 +178,11 @@ export class GitHubOAuth {
     }
 
     try {
-      // Refresh the token
+      // Refresh the token via OAuth proxy worker
       const tokenData = await OAuthService.refreshToken({
-        tokenUrl: GITHUB_CONFIG.tokenUrl,
-        refreshToken: githubRefreshToken,
-        clientId: GITHUB_CONFIG.clientId,
-        clientSecret: GITHUB_CONFIG.clientSecret
+        workerUrl: OAUTH_WORKER_URL,
+        provider: 'github',
+        refreshToken: githubRefreshToken
       });
 
       // Store new tokens

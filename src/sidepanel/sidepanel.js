@@ -58,6 +58,7 @@ let isRecording = false;
 let recordingStartTime = null;
 let timerInterval = null;
 let currentTranscription = '';
+let _previousFocus = null;
 
 // ============================================================================
 // UI Elements
@@ -72,6 +73,9 @@ const backToRecordingBtn = document.getElementById('backToRecordingBtn');
 const backFromHistoryBtn = document.getElementById('backFromHistoryBtn');
 const backFromSettingsBtn = document.getElementById('backFromSettingsBtn');
 const editTranscriptionBtn = document.getElementById('editTranscriptionBtn');
+const postRecordingActions = document.getElementById('postRecordingActions');
+const continueToDestinationBtn = document.getElementById('continueToDestinationBtn');
+const discardRecordingBtn = document.getElementById('discardRecordingBtn');
 const saveSettingsBtn = document.getElementById('saveSettingsBtn');
 const resetSettingsBtn = document.getElementById('resetSettingsBtn');
 
@@ -87,6 +91,9 @@ const destinationTranscriptionPreview = document.getElementById('destinationTran
 // Forms
 const githubTokenInput = document.getElementById('githubToken');
 const maxDurationInput = document.getElementById('maxDuration');
+
+// Theme switcher
+const themeSwitcher = document.getElementById('themeSwitcher');
 
 // GitHub OAuth elements
 const githubOAuthSection = document.getElementById('githubOAuthSection');
@@ -169,6 +176,7 @@ recordBtn.addEventListener('click', handleRecordButtonClick);
 editTranscriptionBtn.addEventListener('click', () => {
   const isEditable = transcriptionText.getAttribute('contenteditable') === 'true';
   transcriptionText.setAttribute('contenteditable', !isEditable);
+  transcriptionText.setAttribute('aria-readonly', isEditable ? 'true' : 'false');
   editTranscriptionBtn.textContent = isEditable ? 'Edit' : 'Done';
 
   if (!isEditable) {
@@ -176,6 +184,21 @@ editTranscriptionBtn.addEventListener('click', () => {
   } else {
     currentTranscription = transcriptionText.textContent.trim();
   }
+});
+
+// Post-recording actions
+continueToDestinationBtn.addEventListener('click', async () => {
+  // Capture any edits the user made
+  currentTranscription = transcriptionText.textContent.trim();
+  // Ensure edit mode is off
+  transcriptionText.setAttribute('contenteditable', 'false');
+  editTranscriptionBtn.textContent = 'Edit';
+  await showDestinationChooser();
+});
+
+discardRecordingBtn.addEventListener('click', () => {
+  resetRecordingUI();
+  showToast('Recording discarded', 'info');
 });
 
 // Destination options
@@ -189,6 +212,16 @@ document.querySelectorAll('.destination-option').forEach(btn => {
 // Settings
 saveSettingsBtn.addEventListener('click', handleSaveSettings);
 resetSettingsBtn.addEventListener('click', handleResetSettings);
+
+// Theme switcher
+themeSwitcher.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-theme]');
+  if (!btn) return;
+  const theme = btn.getAttribute('data-theme');
+  applyTheme(theme);
+  updateThemeSwitcherUI(theme);
+  await updateSettings({ theme });
+});
 
 // GitHub OAuth
 githubSignInBtn.addEventListener('click', handleGitHubSignIn);
@@ -233,6 +266,39 @@ historyDetailModal.addEventListener('click', (e) => {
   }
 });
 
+// Keyboard handler for modal (Escape to close, Tab trap)
+document.addEventListener('keydown', (e) => {
+  if (historyDetailModal.style.display === 'none') return;
+
+  if (e.key === 'Escape') {
+    hideHistoryDetailModal();
+    return;
+  }
+
+  // Focus trap within modal
+  if (e.key === 'Tab') {
+    const focusable = historyDetailModal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+});
+
 // ============================================================================
 // Recording Functions
 // ============================================================================
@@ -254,14 +320,31 @@ async function startRecording() {
       throw new Error('Web Speech API is not supported in this browser. Please use Chrome, Edge, or Safari.');
     }
 
+    // Check if microphone permission is already granted
+    let permissionGranted = false;
+    try {
+      const permStatus = await navigator.permissions.query({ name: 'microphone' });
+      permissionGranted = permStatus.state === 'granted';
+    } catch (e) {
+      // permissions.query may not support 'microphone' in all browsers — fall through to popup
+      console.log('[Side Panel] Could not query mic permission, opening popup');
+    }
+
+    if (permissionGranted) {
+      // Already have permission — start recording directly
+      console.log('[Side Panel] Mic permission already granted, skipping popup');
+      actuallyStartRecording();
+      return;
+    }
+
     // Open permission popup window to request microphone access
     // Side panels cannot show permission prompts, so we need a popup
     const permissionUrl = chrome.runtime.getURL('src/permission/permission.html');
     await chrome.windows.create({
       url: permissionUrl,
       type: 'popup',
-      width: 450,
-      height: 350,
+      width: 470,
+      height: 520,
       focused: true
     });
 
@@ -299,7 +382,7 @@ async function actuallyStartRecording() {
       // Show interim results in lighter color
       const interim = document.createElement('span');
       interim.className = 'interim-text';
-      interim.style.color = '#9ca3af';
+      interim.style.color = 'var(--text-secondary)';
       interim.textContent = text;
 
       // Replace previous interim text
@@ -339,7 +422,7 @@ async function actuallyStartRecording() {
       }
 
       if (type === 'not-allowed') {
-        showToast('Microphone access denied. Please allow microphone access in your browser settings or site permissions.', 'error');
+        showToast('Microphone access denied. Allow at chrome://settings/content/microphone → add https://klpjlccklddpdaageeclbnpfehieclka.chromiumapp.org/', 'error', 8000);
       } else if (type === 'no-speech') {
         // Check if Brave - this often happens in Brave due to privacy blocking
         if (TranscriptionService.isBrave()) {
@@ -367,6 +450,7 @@ async function actuallyStartRecording() {
       recordBtn.classList.remove('btn-primary');
       recordBtn.classList.add('btn-danger');
       recordBtnText.textContent = 'Stop Recording';
+      recordBtn.setAttribute('aria-label', 'Stop recording');
 
       recordingStatus.className = 'status-recording';
       recordingStatus.querySelector('.status-text').textContent = 'Recording... Speak now!';
@@ -374,6 +458,10 @@ async function actuallyStartRecording() {
       recordingTimer.style.display = 'block';
       transcriptionContainer.style.display = 'block';
       transcriptionText.textContent = '';
+      postRecordingActions.style.display = 'none';
+
+      // Activate waveform animation
+      document.querySelector('.recording-card')?.classList.add('is-recording');
 
       // Start timer
       startTimer();
@@ -414,11 +502,15 @@ async function stopRecording() {
     recordBtn.classList.remove('btn-danger');
     recordBtn.classList.add('btn-primary');
     recordBtnText.textContent = 'Start Recording';
+    recordBtn.setAttribute('aria-label', 'Start recording');
 
     recordingStatus.className = 'status-idle';
     recordingStatus.querySelector('.status-text').textContent = 'Recording Complete';
 
     recordingTimer.style.display = 'none';
+
+    // Deactivate waveform animation
+    document.querySelector('.recording-card')?.classList.remove('is-recording');
 
     // Remove any interim text
     const existingInterim = transcriptionText.querySelector('.interim-text');
@@ -434,10 +526,10 @@ async function stopRecording() {
       return;
     }
 
-    showToast('Recording stopped', 'success');
+    showToast('Recording complete — review your transcription below', 'success');
 
-    // Show destination chooser
-    await showDestinationChooser();
+    // Show post-recording actions (edit + continue) instead of auto-navigating
+    postRecordingActions.style.display = 'flex';
 
   } catch (error) {
     console.error('[Side Panel] Error stopping recording:', error);
@@ -461,6 +553,20 @@ function stopTimer() {
   }
 }
 
+/**
+ * Reset recording UI to initial state after a note is sent or discarded.
+ * Hides the transcription box and post-recording actions, clears text,
+ * and resets the status line.
+ */
+function resetRecordingUI() {
+  currentTranscription = '';
+  transcriptionText.textContent = '';
+  transcriptionContainer.style.display = 'none';
+  postRecordingActions.style.display = 'none';
+  recordingStatus.className = 'status-idle';
+  recordingStatus.querySelector('.status-text').textContent = 'Ready to Record';
+}
+
 // ============================================================================
 // Destination Chooser
 // ============================================================================
@@ -476,8 +582,6 @@ async function showDestinationChooser() {
   document.querySelector('[data-destination="github-issue"]').disabled = !isGitHubAuthenticated;
   document.querySelector('[data-destination="github-project"]').disabled = !isGitHubAuthenticated;
   document.querySelector('[data-destination="notion"]').disabled = !isNotionAuthenticated;
-  document.querySelector('[data-destination="onenote"]').disabled = !settings.onenoteToken;
-
   showScreen(screens.DESTINATION);
 }
 
@@ -514,13 +618,8 @@ async function saveDraft() {
     if (success) {
       showToast('Draft saved!', 'success');
 
-      // Reset recording state
-      currentTranscription = '';
-      transcriptionText.textContent = '';
-      transcriptionContainer.style.display = 'none';
-      recordingStatus.querySelector('.status-text').textContent = 'Ready to Record';
-
-      // Show recording screen
+      // Reset recording state and return to recording screen
+      resetRecordingUI();
       showScreen(screens.RECORDING);
 
       // Refresh recent notes
@@ -630,7 +729,8 @@ function handleHistoryItemClick(itemId, allItems) {
     // TODO: Show draft promotion UI in Phase 3
     showToast('Draft promotion coming in Phase 3', 'info');
   } else {
-    // Show detail modal with transcription and link
+    // Show detail modal with transcription and link (save focus for restore)
+    _previousFocus = document.activeElement;
     showHistoryDetailModal(item);
   }
 }
@@ -645,6 +745,9 @@ async function loadSettings() {
 
     githubTokenInput.value = settings.githubToken || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
+
+    // Sync theme toggle UI
+    updateThemeSwitcherUI(settings.theme || 'auto');
 
     // Update OAuth UIs
     await updateGitHubConnectionUI();
@@ -693,6 +796,31 @@ async function handleResetSettings() {
     console.error('[Side Panel] Error resetting settings:', error);
     showToast(`Error: ${error.message}`, 'error');
   }
+}
+
+// ============================================================================
+// Theme Functions
+// ============================================================================
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  root.classList.remove('theme-light', 'theme-dark');
+
+  if (theme === 'light') {
+    root.classList.add('theme-light');
+  } else if (theme === 'dark') {
+    root.classList.add('theme-dark');
+  }
+  // 'auto' = no class, media query handles it
+}
+
+function updateThemeSwitcherUI(theme) {
+  if (!themeSwitcher) return;
+  themeSwitcher.querySelectorAll('button').forEach(btn => {
+    const isActive = btn.getAttribute('data-theme') === theme;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
 }
 
 // ============================================================================
@@ -847,20 +975,29 @@ async function handleNotionDestination() {
       // Use first database
       parent = { database_id: databases[0].id };
       parentName = databases[0].title?.[0]?.plain_text || 'Database';
+
+      // Find the title property name from the database schema
+      // Notion databases can name their title column anything (e.g., "Name", "Title", "Task")
+      const dbProperties = databases[0].properties || {};
+      const titlePropName = Object.keys(dbProperties).find(
+        key => dbProperties[key].type === 'title'
+      ) || 'Name';
+
+      await sendToNotion(parent, parentName, titlePropName);
     } else {
       // Use first page
       parent = { page_id: pages[0].id };
       parentName = pages[0].properties?.title?.title?.[0]?.plain_text || 'Page';
-    }
 
-    await sendToNotion(parent, parentName);
+      await sendToNotion(parent, parentName);
+    }
   } catch (error) {
     console.error('[Side Panel] Error handling Notion destination:', error);
     showToast(`Failed to send to Notion: ${error.message}`, 'error');
   }
 }
 
-async function sendToNotion(parent, parentName) {
+async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
   try {
     console.log('[Side Panel] Sending note to Notion');
 
@@ -873,8 +1010,9 @@ async function sendToNotion(parent, parentName) {
 
     if (parent.database_id) {
       // Create database entry with content
+      // Use the actual title property name from the database schema (not hardcoded "Name")
       const properties = {
-        Name: {
+        [titlePropertyName]: {
           title: [
             {
               text: {
@@ -967,11 +1105,8 @@ async function sendToNotion(parent, parentName) {
     // Show success message
     showToast(`Note sent to Notion (${parentName})!`, 'success');
 
-    // Reset recording state
-    currentTranscription = '';
-    transcriptionText.textContent = '';
-
-    // Return to recording screen
+    // Reset recording state and return to recording screen
+    resetRecordingUI();
     showScreen(screens.RECORDING);
 
     // Reload recent notes
@@ -991,7 +1126,7 @@ async function updateNotionConnectionUI() {
 
     if (workspaceInfo) {
       notionWorkspaceName.textContent = workspaceInfo.name;
-      notionWorkspaceIcon.textContent = workspaceInfo.icon || '📝';
+      // Keep default SVG icon from HTML; workspace icon data not used
     }
 
     notionNotConnected.style.display = 'none';
@@ -1112,7 +1247,8 @@ function showToast(message, type = 'info', duration = 3000) {
   toastContainer.appendChild(toast);
 
   setTimeout(() => {
-    toast.remove();
+    toast.classList.add('exiting');
+    setTimeout(() => toast.remove(), 350);
   }, duration);
 }
 
@@ -1122,6 +1258,10 @@ function showToast(message, type = 'info', duration = 3000) {
 
 async function init() {
   console.log('[Side Panel] Initializing...');
+
+  // Apply saved theme immediately to prevent flash
+  const settings = await getSettings();
+  applyTheme(settings.theme || 'auto');
 
   // Check if running in Brave and show warning
   if (TranscriptionService.isBrave()) {
@@ -1175,10 +1315,12 @@ async function showGitHubIssueForm() {
 function showRepoDropdown() {
   renderRepoList();
   repoList.style.display = 'block';
+  githubRepoSearch.setAttribute('aria-expanded', 'true');
 }
 
 function hideRepoDropdown() {
   repoList.style.display = 'none';
+  githubRepoSearch.setAttribute('aria-expanded', 'false');
 }
 
 async function handleRepoSearch(e) {
@@ -1333,11 +1475,13 @@ async function handleCreateIssue() {
       5000 // Show for 5 seconds
     );
 
-    // Reset form
+    // Reset form and recording UI
     resetIssueForm();
+    resetRecordingUI();
 
-    // Go back to recording screen
+    // Go back to recording screen and refresh history
     showScreen(screens.RECORDING);
+    await loadRecentNotes();
 
   } catch (error) {
     console.error('[GitHub Issue] Error creating issue:', error);
@@ -1370,7 +1514,6 @@ function showHistoryDetailModal(item) {
     'github-issue': 'GitHub Issue',
     'github-project': 'GitHub Project',
     'notion': 'Notion',
-    'onenote': 'OneNote',
     'draft': 'Draft'
   };
   modalDestination.textContent = destinationNames[item.destination] || item.destination;
@@ -1394,12 +1537,17 @@ function showHistoryDetailModal(item) {
     modalLinkSection.style.display = 'none';
   }
 
-  // Show modal
+  // Show modal and focus close button for accessibility
   historyDetailModal.style.display = 'flex';
+  closeModalBtn.focus();
 }
 
 function hideHistoryDetailModal() {
   historyDetailModal.style.display = 'none';
+  if (_previousFocus) {
+    _previousFocus.focus();
+    _previousFocus = null;
+  }
 }
 
 // ============================================================================
@@ -1433,10 +1581,12 @@ async function showGitHubProjectForm() {
 function showProjectDropdown() {
   renderProjectList();
   projectList.style.display = 'block';
+  githubProjectSearch.setAttribute('aria-expanded', 'true');
 }
 
 function hideProjectDropdown() {
   projectList.style.display = 'none';
+  githubProjectSearch.setAttribute('aria-expanded', 'false');
 }
 
 async function handleProjectSearch(e) {
@@ -1581,11 +1731,13 @@ async function handleCreateProjectItem() {
       5000
     );
 
-    // Reset form
+    // Reset form and recording UI
     resetProjectForm();
+    resetRecordingUI();
 
-    // Go back to recording screen
+    // Go back to recording screen and refresh history
     showScreen(screens.RECORDING);
+    await loadRecentNotes();
 
   } catch (error) {
     console.error('[GitHub Project] Error creating draft issue:', error);

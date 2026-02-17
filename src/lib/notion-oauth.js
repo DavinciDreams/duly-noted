@@ -4,7 +4,7 @@
  */
 
 import { OAuthService } from './oauth-service.js';
-import { NOTION_OAUTH_CONFIG as NOTION_CONFIG, validateOAuthConfig } from '../config/oauth-config.js';
+import { NOTION_OAUTH_CONFIG as NOTION_CONFIG, OAUTH_WORKER_URL, validateOAuthConfig } from '../config/oauth-config.js';
 
 export class NotionOAuth {
   /**
@@ -90,18 +90,14 @@ export class NotionOAuth {
         throw new Error('Invalid state parameter - possible CSRF attack');
       }
 
-      // Exchange code for access token using Basic Auth
-      // Notion requires base64(client_id:client_secret) in Authorization header
-      const credentials = btoa(`${NOTION_CONFIG.clientId}:${NOTION_CONFIG.clientSecret}`);
-
-      const response = await fetch(NOTION_CONFIG.tokenUrl, {
+      // Exchange code for access token via OAuth proxy worker
+      // Worker handles Basic Auth with secrets injected server-side
+      const response = await fetch(`${OAUTH_WORKER_URL}/api/notion/token`, {
         method: 'POST',
         headers: {
-          'Authorization': `Basic ${credentials}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          grant_type: 'authorization_code',
           code: code,
           redirect_uri: this.getRedirectUri()
         })

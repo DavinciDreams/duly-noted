@@ -62,28 +62,23 @@ export class OAuthService {
   }
 
   /**
-   * Exchange authorization code for access token
+   * Exchange authorization code for access token via OAuth proxy worker
    * @param {Object} config - Token exchange configuration
-   * @param {string} config.tokenUrl - Provider's token endpoint
+   * @param {string} config.workerUrl - OAuth proxy worker base URL
+   * @param {string} config.provider - Provider name (github, notion)
    * @param {string} config.code - Authorization code
-   * @param {string} config.clientId - OAuth client ID
-   * @param {string} config.clientSecret - OAuth client secret
    * @param {string} config.redirectUri - Redirect URI (must match authorization)
    * @returns {Promise<Object>} Token response
    */
-  static async exchangeCodeForToken({ tokenUrl, code, clientId, clientSecret, redirectUri }) {
-    const response = await fetch(tokenUrl, {
+  static async exchangeCodeForToken({ workerUrl, provider, code, redirectUri }) {
+    const response = await fetch(`${workerUrl}/api/${provider}/token`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
         code: code,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code'
+        redirect_uri: redirectUri
       })
     });
 
@@ -96,26 +91,21 @@ export class OAuthService {
   }
 
   /**
-   * Refresh an expired access token
+   * Refresh an expired access token via OAuth proxy worker
    * @param {Object} config - Token refresh configuration
-   * @param {string} config.tokenUrl - Provider's token endpoint
+   * @param {string} config.workerUrl - OAuth proxy worker base URL
+   * @param {string} config.provider - Provider name (github, notion)
    * @param {string} config.refreshToken - Refresh token
-   * @param {string} config.clientId - OAuth client ID
-   * @param {string} config.clientSecret - OAuth client secret
    * @returns {Promise<Object>} New token response
    */
-  static async refreshToken({ tokenUrl, refreshToken, clientId, clientSecret }) {
-    const response = await fetch(tokenUrl, {
+  static async refreshToken({ workerUrl, provider, refreshToken }) {
+    const response = await fetch(`${workerUrl}/api/${provider}/refresh`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
+        refresh_token: refreshToken
       })
     });
 

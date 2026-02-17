@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Duly Noted</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&family=Open+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -15,9 +12,12 @@
 
     <!-- Header -->
     <header class="header">
-      <h1 class="header-title">🎤 Duly Noted</h1>
+      <h1 class="header-title">
+        <img src="../../icons/header-logo.png" alt="" class="header-logo" aria-hidden="true">
+        Duly Noted
+      </h1>
       <button id="settingsBtn" class="icon-btn" title="Settings" aria-label="Open settings">
-        <span>⚙️</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
       </button>
     </header>
 
@@ -28,27 +28,47 @@
       <div id="recordingScreen" class="screen active">
         <div class="recording-container">
 
-          <!-- Recording Status -->
-          <div id="recordingStatus" class="status-idle">
-            <div class="status-icon">🎤</div>
-            <div class="status-text">Ready to Record</div>
-          </div>
+          <!-- Glass card wrapper for recording area -->
+          <div class="glass-card recording-card">
+            <!-- Recording Status -->
+            <div id="recordingStatus" class="status-idle" role="status" aria-live="polite">
+              <div class="status-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </div>
+              <div class="status-text">Ready to Record</div>
+            </div>
 
-          <!-- Recording Controls -->
-          <div class="controls">
-            <button id="recordBtn" class="btn btn-primary btn-large">
-              <span id="recordBtnText">Start Recording</span>
-            </button>
-            <div id="recordingTimer" class="timer" style="display: none;">00:00</div>
+            <!-- Waveform visualization -->
+            <div class="waveform-container" aria-hidden="true">
+              <div class="waveform-bars">
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+                <span></span><span></span><span></span><span></span><span></span>
+              </div>
+            </div>
+
+            <!-- Recording Controls -->
+            <div class="controls">
+              <button id="recordBtn" class="btn btn-primary btn-large record-btn-glow" aria-label="Start recording">
+                <span id="recordBtnText">Start Recording</span>
+              </button>
+              <div id="recordingTimer" class="timer" style="display: none;" aria-live="polite" aria-label="Recording duration">00:00</div>
+            </div>
           </div>
 
           <!-- Transcription Display -->
-          <div id="transcriptionContainer" class="transcription-container" style="display: none;">
+          <div id="transcriptionContainer" class="glass-card transcription-container" style="display: none;">
             <div class="section-header">
               <h2>Transcription</h2>
-              <button id="editTranscriptionBtn" class="btn btn-small">Edit</button>
+              <button id="editTranscriptionBtn" class="btn btn-small btn-secondary" aria-label="Edit transcription">Edit</button>
             </div>
-            <div id="transcriptionText" class="transcription-text" contenteditable="false"></div>
+            <div id="transcriptionText" class="transcription-text" contenteditable="false" aria-label="Transcription text" role="textbox" aria-readonly="true"></div>
+            <div id="postRecordingActions" class="post-recording-actions" style="display: none;">
+              <button id="continueToDestinationBtn" class="btn btn-primary btn-full" aria-label="Continue to choose destination">
+                Choose Destination
+              </button>
+              <button id="discardRecordingBtn" class="btn btn-text" aria-label="Discard recording">Discard</button>
+            </div>
           </div>
 
         </div>
@@ -56,7 +76,7 @@
         <!-- Recent Notes Preview -->
         <div class="recent-notes">
           <h3>Recent Notes</h3>
-          <div id="recentNotesList" class="notes-list">
+          <div id="recentNotesList" class="notes-list" role="list">
             <p class="empty-state">No notes yet. Start recording to create your first note!</p>
           </div>
           <button id="viewAllHistoryBtn" class="btn btn-secondary btn-full">View All History</button>
@@ -68,30 +88,35 @@
         <div class="destination-container">
 
           <!-- Back Button -->
-          <button id="backToRecordingBtn" class="btn btn-text">
-            <span>← Back</span>
+          <button id="backToRecordingBtn" class="btn btn-text" aria-label="Go back to recording">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
           </button>
 
           <h2>Where should this go?</h2>
 
           <!-- Transcription Preview -->
           <div class="transcription-preview">
-            <div id="destinationTranscriptionPreview" class="transcription-text-preview"></div>
+            <div id="destinationTranscriptionPreview" class="transcription-text-preview" aria-label="Transcription preview"></div>
           </div>
 
           <!-- Destination Options -->
-          <div class="destination-options">
+          <div class="destination-options" role="group" aria-label="Send destination">
 
-            <button class="destination-option" data-destination="draft">
-              <div class="destination-icon">💾</div>
+            <button class="destination-option" data-destination="draft" aria-label="Save as Draft">
+              <div class="destination-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              </div>
               <div class="destination-info">
                 <div class="destination-name">Save as Draft</div>
                 <div class="destination-desc">Decide later</div>
               </div>
             </button>
 
-            <button class="destination-option" data-destination="github-issue" disabled>
-              <div class="destination-icon">🐙</div>
+            <button class="destination-option" data-destination="github-issue" disabled aria-label="Create GitHub Issue">
+              <div class="destination-icon">
+                <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              </div>
               <div class="destination-info">
                 <div class="destination-name">Create GitHub Issue</div>
                 <div class="destination-desc">Track as actionable task</div>
@@ -99,8 +124,10 @@
               <div class="destination-badge">Not configured</div>
             </button>
 
-            <button class="destination-option" data-destination="github-project" disabled>
-              <div class="destination-icon">📋</div>
+            <button class="destination-option" data-destination="github-project" disabled aria-label="Add to GitHub Project">
+              <div class="destination-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              </div>
               <div class="destination-info">
                 <div class="destination-name">Add to GitHub Project</div>
                 <div class="destination-desc">Add to project board</div>
@@ -108,17 +135,10 @@
               <div class="destination-badge">Not configured</div>
             </button>
 
-            <button class="destination-option" data-destination="onenote" disabled>
-              <div class="destination-icon">📘</div>
-              <div class="destination-info">
-                <div class="destination-name">OneNote</div>
-                <div class="destination-desc">Quick notes</div>
+            <button class="destination-option" data-destination="notion" disabled aria-label="Send to Notion">
+              <div class="destination-icon">
+                <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z"/></svg>
               </div>
-              <div class="destination-badge">Not configured</div>
-            </button>
-
-            <button class="destination-option" data-destination="notion" disabled>
-              <div class="destination-icon">📓</div>
               <div class="destination-info">
                 <div class="destination-name">Notion</div>
                 <div class="destination-desc">Knowledge base</div>
@@ -136,8 +156,9 @@
         <div class="form-container">
 
           <!-- Back Button -->
-          <button id="backFromGitHubIssueBtn" class="btn btn-text">
-            <span>← Back</span>
+          <button id="backFromGitHubIssueBtn" class="btn btn-text" aria-label="Go back to destinations">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
           </button>
 
           <h2>Create GitHub Issue</h2>
@@ -151,8 +172,11 @@
                 id="githubRepoSearch"
                 class="input"
                 placeholder="Search repositories..."
-                autocomplete="off">
-              <div id="repoList" class="dropdown-list" style="display: none;">
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="repoList">
+              <div id="repoList" class="dropdown-list" style="display: none;" role="listbox">
                 <div class="dropdown-section">
                   <div class="dropdown-section-title">Recently Used</div>
                   <div id="recentReposList"></div>
@@ -174,7 +198,8 @@
               id="issueTitle"
               class="input"
               placeholder="Brief description of the issue"
-              required>
+              required
+              aria-required="true">
           </div>
 
           <!-- Issue Body -->
@@ -211,8 +236,9 @@
         <div class="form-container">
 
           <!-- Back Button -->
-          <button id="backFromGitHubProjectBtn" class="btn btn-text">
-            <span>← Back</span>
+          <button id="backFromGitHubProjectBtn" class="btn btn-text" aria-label="Go back to destinations">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
           </button>
 
           <h2>Add to GitHub Project</h2>
@@ -226,8 +252,11 @@
                 id="githubProjectSearch"
                 class="input"
                 placeholder="Search projects..."
-                autocomplete="off">
-              <div id="projectList" class="dropdown-list" style="display: none;">
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="projectList">
+              <div id="projectList" class="dropdown-list" style="display: none;" role="listbox">
                 <div class="dropdown-section">
                   <div class="dropdown-section-title">Recently Used</div>
                   <div id="recentProjectsList"></div>
@@ -249,7 +278,8 @@
               id="projectItemTitle"
               class="input"
               placeholder="Brief description"
-              required>
+              required
+              aria-required="true">
           </div>
 
           <!-- Draft Issue Body -->
@@ -276,26 +306,27 @@
         <div class="history-container">
 
           <!-- Back Button -->
-          <button id="backFromHistoryBtn" class="btn btn-text">
-            <span>← Back</span>
+          <button id="backFromHistoryBtn" class="btn btn-text" aria-label="Go back to recording">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
           </button>
 
           <h2>History</h2>
 
           <!-- Filter Controls -->
           <div class="filter-controls">
-            <select id="historyFilter" class="filter-select">
+            <select id="historyFilter" class="filter-select" aria-label="Filter history by type">
               <option value="all">All</option>
-              <option value="draft">💾 Drafts only</option>
-              <option value="github-issue">🐙 GitHub Issues</option>
-              <option value="github-project">📋 GitHub Projects</option>
-              <option value="onenote">📘 OneNote</option>
+              <option value="draft">Drafts only</option>
+              <option value="github-issue">GitHub Issues</option>
+              <option value="github-project">GitHub Projects</option>
+              <option value="notion">Notion</option>
             </select>
-            <input type="search" id="historySearch" class="search-input" placeholder="Search...">
+            <input type="search" id="historySearch" class="search-input" placeholder="Search..." aria-label="Search history">
           </div>
 
           <!-- History List -->
-          <div id="historyList" class="history-list">
+          <div id="historyList" class="history-list" role="list">
             <p class="empty-state">No history yet.</p>
           </div>
 
@@ -307,22 +338,42 @@
         <div class="settings-container">
 
           <!-- Back Button -->
-          <button id="backFromSettingsBtn" class="btn btn-text">
-            <span>← Back</span>
+          <button id="backFromSettingsBtn" class="btn btn-text" aria-label="Go back to recording">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+            <span>Back</span>
           </button>
 
           <h2>Settings</h2>
 
+          <!-- Theme Toggle -->
+          <div class="settings-section">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              Appearance
+            </h3>
+            <div class="form-group">
+              <label>Theme</label>
+              <div id="themeSwitcher" class="theme-switcher" role="radiogroup" aria-label="Theme selection">
+                <button type="button" data-theme="auto" class="active" role="radio" aria-checked="true">System</button>
+                <button type="button" data-theme="light" role="radio" aria-checked="false">Light</button>
+                <button type="button" data-theme="dark" role="radio" aria-checked="false">Dark</button>
+              </div>
+            </div>
+          </div>
+
           <!-- Settings Sections -->
           <div class="settings-section">
-            <h3>🐙 GitHub Integration</h3>
+            <h3>
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+              GitHub Integration
+            </h3>
 
             <!-- OAuth Section (Default) -->
             <div id="githubOAuthSection">
               <div id="githubNotConnected" class="oauth-status">
                 <p class="help-text">Connect your GitHub account to create issues and manage projects</p>
                 <button id="githubSignInBtn" class="btn btn-primary btn-oauth">
-                  <svg class="oauth-icon" viewBox="0 0 16 16" width="20" height="20" fill="currentColor">
+                  <svg class="oauth-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
                     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
                   </svg>
                   Sign in with GitHub
@@ -355,23 +406,26 @@
               <div class="form-group">
                 <label for="githubToken">Personal Access Token</label>
                 <input type="password" id="githubToken" placeholder="ghp_..." class="input">
-                <button id="testGitHubBtn" class="btn btn-small">Test Connection</button>
+                <button id="testGitHubBtn" class="btn btn-small btn-secondary">Test Connection</button>
               </div>
               <p class="help-text">
-                <a href="https://github.com/settings/tokens/new?scopes=repo,project,read:user" target="_blank">Generate a token</a> with repo, project, and read:user scopes
+                <a href="https://github.com/settings/tokens/new?scopes=repo,project,read:user" target="_blank" rel="noopener noreferrer">Generate a token</a> with repo, project, and read:user scopes
               </p>
             </div>
           </div>
 
           <div class="settings-section">
-            <h3>📝 Notion Integration</h3>
+            <h3>
+              <svg viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z"/></svg>
+              Notion Integration
+            </h3>
 
             <!-- Notion OAuth Section -->
             <div id="notionOAuthSection">
               <div id="notionNotConnected" class="oauth-status">
                 <p class="help-text">Connect your Notion workspace to save notes directly to pages</p>
                 <button id="notionSignInBtn" class="btn btn-primary btn-oauth">
-                  <svg class="oauth-icon" viewBox="0 0 100 100" width="20" height="20" fill="currentColor">
+                  <svg class="oauth-icon" viewBox="0 0 100 100" fill="currentColor" aria-hidden="true">
                     <path d="M6.017 4.313l55.333 -4.087c6.797 -0.583 8.543 -0.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277 -1.553 6.807 -6.99 7.193L24.467 99.967c-4.08 0.193 -6.023 -0.39 -8.16 -3.113L3.3 79.94c-2.333 -3.113 -3.3 -5.443 -3.3 -8.167V11.113c0 -3.497 1.553 -6.413 6.017 -6.8z"/>
                   </svg>
                   Sign in with Notion
@@ -381,7 +435,9 @@
               <div id="notionConnected" class="oauth-status" style="display: none;">
                 <div class="connected-info">
                   <div class="connected-avatar-container">
-                    <div class="connected-icon" id="notionWorkspaceIcon">📝</div>
+                    <div class="connected-icon" id="notionWorkspaceIcon">
+                      <svg class="icon-lg" viewBox="0 0 100 100" fill="currentColor" aria-hidden="true"><path d="M6.017 4.313l55.333-4.087c6.797-.583 8.543-.19 12.817 2.917l17.663 12.443c2.913 2.14 3.883 2.723 3.883 5.053v68.243c0 4.277-1.553 6.807-6.99 7.193L24.467 99.967c-4.08.193-6.023-.39-8.16-3.113L3.3 79.94c-2.333-3.113-3.3-5.443-3.3-8.167V11.113c0-3.497 1.553-6.413 6.017-6.8z"/></svg>
+                    </div>
                   </div>
                   <div class="connected-details">
                     <div class="connected-name" id="notionWorkspaceName">Loading...</div>
@@ -394,15 +450,13 @@
           </div>
 
           <div class="settings-section">
-            <h3>📘 OneNote Integration</h3>
-            <p class="help-text">OneNote integration coming in Phase 6</p>
-          </div>
-
-          <div class="settings-section">
-            <h3>🎤 Recording</h3>
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              Recording
+            </h3>
             <div class="form-group">
               <label for="maxDuration">Max Recording Duration (seconds)</label>
-              <input type="number" id="maxDuration" value="300" min="60" max="600" class="input">
+              <input type="number" id="maxDuration" value="300" min="60" max="600" class="input" aria-describedby="maxDurationHelp">
             </div>
           </div>
 
@@ -417,15 +471,15 @@
     </main>
 
     <!-- Toast Notifications -->
-    <div id="toastContainer" class="toast-container"></div>
+    <div id="toastContainer" class="toast-container" role="alert" aria-live="polite"></div>
 
     <!-- History Detail Modal -->
-    <div id="historyDetailModal" class="modal" style="display: none;">
+    <div id="historyDetailModal" class="modal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal-overlay"></div>
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="modalTitle">Note Details</h3>
-          <button id="closeModalBtn" class="btn-close">×</button>
+          <button id="closeModalBtn" class="btn-close" aria-label="Close dialog">&times;</button>
         </div>
         <div class="modal-body">
           <div class="detail-section">
@@ -438,7 +492,7 @@
           </div>
           <div class="detail-section" id="modalLinkSection" style="display: none;">
             <label>Link:</label>
-            <a id="modalLink" href="#" target="_blank" class="external-link">View on GitHub →</a>
+            <a id="modalLink" href="#" target="_blank" rel="noopener noreferrer" class="external-link">View on GitHub</a>
           </div>
         </div>
         <div class="modal-footer">

@@ -5,11 +5,13 @@
 
 const grantBtn = document.getElementById('grantBtn');
 const status = document.getElementById('status');
+const deniedHelp = document.getElementById('deniedHelp');
 
 grantBtn.addEventListener('click', async () => {
   try {
     status.textContent = 'Requesting permission...';
     status.className = 'status';
+    deniedHelp.style.display = 'none';
 
     // Request microphone permission
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -17,18 +19,19 @@ grantBtn.addEventListener('click', async () => {
     // Stop the stream immediately - we just needed permission
     stream.getTracks().forEach(track => track.stop());
 
-    status.textContent = '✓ Permission granted! You can close this window.';
+    status.textContent = 'Permission granted! Starting recording...';
     status.className = 'status success';
 
     // Notify the extension that permission was granted
     chrome.runtime.sendMessage({ type: 'PERMISSION_GRANTED' });
 
-    // Auto-close after 2 seconds
-    setTimeout(() => window.close(), 2000);
+    // Auto-close after 1.5 seconds
+    setTimeout(() => window.close(), 1500);
 
   } catch (error) {
     console.error('Permission denied:', error);
-    status.textContent = '✗ Permission denied. Please allow microphone access and try again.';
+    status.textContent = 'Permission denied. See instructions below.';
     status.className = 'status error';
+    deniedHelp.style.display = 'block';
   }
 });

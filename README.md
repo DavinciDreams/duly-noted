@@ -1,98 +1,66 @@
-# Duly Noted 🎤
+# Duly Noted
 
 **capture creativity**
 
-A Chrome extension that lets you quickly capture voice notes using Web Speech API for real-time transcription. Instantly send notes to your favorite productivity tools or save them locally.
+A Chrome extension that lets you quickly capture voice notes with real-time transcription. Send notes to GitHub Issues, GitHub Projects, Notion, or save them locally as drafts. Never lose a great idea again.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.1.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## ✨ Integration Features
+## Features
 
-<table>
-<tr>
-<td width="50%">
-
-### 🎙️ Voice Recording & Transcription
+### Voice Recording & Transcription
 - **Real-time transcription** using Web Speech API
 - **Editable transcripts** - fix any errors before sending
-- **Visual feedback** with live recording timer
+- **Visual feedback** with live waveform animation and recording timer
 - **High accuracy** speech-to-text conversion
 
-<p align="center">
-<img src="assets/Screenshot%202026-02-14%20063750.png" width="70%" />
-</p>
-
-</td>
-<td width="50%">
-
-### 📜 History & Organization
-- **Recent notes** preview in sidebar
-- **Full history view** with filtering
-- **Click to open** - direct links to GitHub/Notion
-- **Persistent storage** - never lose your notes
-- **Metadata tracking** - timestamps, destinations, and more
-
-<p align="center">
-<img src="assets/Screenshot%202026-02-14%20063601.png" width="70%" />
-</p>
-
-</td>
-</tr>
-</table>
-  
-### Destination Chooser
-![GitHub Integration](assets/Screenshot%202026-02-14%20063434.png)
-*Choose where to send your note - GitHub, Notion, or save as draft*
-
 ### GitHub Integration
-![Destination Chooser](assets/Screenshot%202026-02-14%20063151.png)
-*Create GitHub Issues with repository selection*
-
-### Notion Integration
-![Recording Interface](assets/Screenshot%202026-02-14%20062435.png)
-*Send notes to Notion databases or pages*
-
-
-
-## ✨ Integration Features
-
-### 🐙 GitHub Integration
 - **Create GitHub Issues** directly from voice notes
 - **Add to GitHub Projects** with custom fields
 - **OAuth authentication** - secure, no tokens to manage
 - **Repository selection** - choose from all your repos
 - **Clickable history** - links open issues/projects in new tabs
 
-### 📓 Notion Integration
+### Notion Integration
 - **Send to Notion databases** or create child pages
 - **OAuth authentication** - secure workspace connection
 - **Auto-formatting** - first line becomes title
 - **Smart detection** - finds all accessible databases and pages
 - **Clickable history** - links open Notion pages in new tabs
 
-## 🌐 Browser Compatibility
+### History & Organization
+- **Recent notes** preview in sidebar
+- **Full history view** with filtering
+- **Click to open** - direct links to GitHub/Notion
+- **Persistent storage** - never lose your notes
+- **Metadata tracking** - timestamps, destinations, and more
 
-**✅ Fully Supported:**
+### Design
+- **Dark glassmorphic UI** with frosted-glass cards and subtle gradients
+- **Light mode support** via `prefers-color-scheme`
+- **Smooth animations** - waveform visualizer, pulse rings, spring-eased toasts
+- **Accessible** - focus-visible outlines, reduced-motion support, high contrast text
+
+## Browser Compatibility
+
+**Fully Supported:**
 - Google Chrome (recommended)
 - Microsoft Edge
 
-**⚠️ Limited Support:**
+**Limited Support:**
 - Brave Browser - Requires disabling shields for Web Speech API
-  - Go to `brave://settings/shields`
-  - Under "Sites that can always use Google services" add this extension
-  - Or use Chrome/Edge for the best experience
 
-**❌ Not Supported:**
+**Not Supported:**
 - Firefox - Does not support Web Speech API
 - Safari - Limited Web Speech API support
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
 **From Chrome Web Store (Recommended):**
-1. Visit the [Chrome Web Store](https://chrome.google.com/webstore) (link coming soon)
+1. Visit the [Chrome Web Store listing](https://chrome.google.com/webstore) (link coming soon)
 2. Click "Add to Chrome"
 3. Confirm the permissions
 4. Pin the extension to your toolbar
@@ -102,7 +70,7 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 2. Open Chrome and go to `chrome://extensions/`
 3. Enable "Developer mode" (toggle in top-right)
 4. Click "Load unpacked"
-5. Select this directory
+5. Select the project directory
 6. Pin the extension to your toolbar
 
 ### First Run
@@ -111,12 +79,12 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 2. Grant microphone permission when prompted
 3. Click "Start Recording" and speak your first note
 4. Click "Stop & Send" when done
-5. Choose "Save as Draft" to save locally
+5. Choose a destination - GitHub, Notion, or save as draft
 
 ### Setting up GitHub Integration
 
-1. Click the Settings icon (⚙️) in the extension
-2. Scroll to "🐙 GitHub Integration"
+1. Click the Settings icon in the extension
+2. Scroll to "GitHub Integration"
 3. Click "Sign in with GitHub"
 4. Authorize the application
 5. You can now send notes to GitHub Issues and Projects!
@@ -125,17 +93,17 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 
 ### Setting up Notion Integration
 
-1. Click the Settings icon (⚙️) in the extension
-2. Scroll to "📝 Notion Integration"
+1. Click the Settings icon in the extension
+2. Scroll to "Notion Integration"
 3. Click "Sign in with Notion"
 4. Select your workspace and authorize
 5. Grant access to specific databases/pages in Notion
 6. You can now send notes to Notion!
 
 **Note:** You need to grant the integration access to pages/databases in Notion:
-- Open a page in Notion → "..." menu → "Add connections" → Select "Duly Noted"
+- Open a page in Notion > "..." menu > "Add connections" > Select "Duly Noted"
 
-## 📋 Usage
+## Usage
 
 ### Recording a Voice Note
 
@@ -159,7 +127,6 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 3. Select a project from that repository
 4. Edit the title and body if needed
 5. Click "Add to Project"
-6. Your note is now a project item!
 
 ### Sending to Notion
 
@@ -169,58 +136,54 @@ A Chrome extension that lets you quickly capture voice notes using Web Speech AP
 4. Full transcription becomes the page content
 5. Click the note in history to open it in Notion!
 
-## ⚙️ Settings
+## Settings
 
-### General Settings
 - **Maximum Recording Duration** - Set recording time limit (default: 5 minutes)
-
-### GitHub Settings
-- **OAuth Status** - View connection status and workspace
-- **Sign Out** - Disconnect GitHub integration
-
-### Notion Settings
-- **OAuth Status** - View connection status and workspace
-- **Sign Out** - Disconnect Notion integration
-
-### Advanced Settings
+- **GitHub OAuth** - View connection status, sign in/out
+- **Notion OAuth** - View connection status, sign in/out
 - **Clear All Data** - Reset extension (deletes all notes and settings)
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 
 ```
 duly-noted/
 ├── manifest.json              # Extension configuration (Manifest V3)
-├── .env.example              # OAuth credentials template
-├── package.json              # Dependencies
+├── package.json               # Dependencies & scripts
 ├── scripts/
-│   └── build-config.js       # Runtime config generator
-├── icons/                    # Extension icons (16x16, 48x48, 128x128)
-├── assets/                   # Screenshots and logo
-└── src/
-    ├── service-worker/
-    │   └── service-worker.js # Background service worker
-    ├── offscreen/
-    │   ├── offscreen.html    # Web Speech API context
-    │   └── offscreen.js      # Speech recognition handler
-    ├── sidepanel/
-    │   ├── sidepanel.html    # Main UI
-    │   ├── sidepanel.css     # Styles
-    │   └── sidepanel.js      # UI controller
-    ├── config/
-    │   ├── oauth-config.js   # OAuth configuration
-    │   └── runtime-config.js # Generated from .env
-    ├── lib/
-    │   ├── oauth-service.js       # OAuth core logic
-    │   ├── github-oauth.js        # GitHub OAuth implementation
-    │   ├── github-service.js      # GitHub API wrapper
-    │   ├── notion-oauth.js        # Notion OAuth implementation
-    │   ├── notion-service.js      # Notion API wrapper
-    │   ├── transcription-service.js # Web Speech API wrapper
-    │   └── storage.js             # Chrome storage wrappers
-    └── utils/
-        └── helpers.js        # Utility functions
+│   └── package.js             # Zip packager for Chrome Web Store
+├── icons/                     # Extension icons & logos
+├── src/
+│   ├── service-worker/
+│   │   └── service-worker.js  # Background service worker
+│   ├── offscreen/
+│   │   ├── offscreen.html     # Web Speech API context
+│   │   └── offscreen.js       # Speech recognition handler
+│   ├── sidepanel/
+│   │   ├── sidepanel.html     # Main UI
+│   │   ├── sidepanel.css      # Styles (dark glassmorphic theme)
+│   │   └── sidepanel.js       # UI controller
+│   ├── permission/
+│   │   ├── permission.html    # Microphone permission popup
+│   │   └── permission.js      # Permission request handler
+│   ├── config/
+│   │   └── oauth-config.js    # OAuth configuration
+│   ├── lib/
+│   │   ├── oauth-service.js        # OAuth core logic
+│   │   ├── github-oauth.js         # GitHub OAuth implementation
+│   │   ├── github-service.js       # GitHub API wrapper
+│   │   ├── github-cache.js         # Recently used repos/projects cache
+│   │   ├── notion-oauth.js         # Notion OAuth implementation
+│   │   ├── notion-service.js       # Notion API wrapper
+│   │   ├── transcription-service.js # Web Speech API wrapper
+│   │   └── storage.js              # Chrome storage wrappers
+│   ├── utils/
+│   │   └── helpers.js         # Utility functions
+│   └── fonts/                 # Open Sans & Poppins (local)
+└── worker/                    # Cloudflare Worker for OAuth token exchange
+    ├── src/index.js
+    └── wrangler.toml
 ```
 
 ### Building from Source
@@ -232,25 +195,16 @@ duly-noted/
 **Steps:**
 1. Clone the repository: `git clone https://github.com/DavinciDreams/duly-noted.git`
 2. Navigate to the directory: `cd duly-noted`
-3. Copy `.env.example` to `.env`
-4. Add your OAuth credentials (see below)
-5. Install dependencies: `npm install`
-6. Generate runtime config: `npm run build:config`
-7. Load the extension in Chrome (see Installation for Development above)
+3. Install dependencies: `npm install`
+4. Load the extension in Chrome (see Installation for Development above)
 
-### OAuth Credentials Setup
+### Packaging for Chrome Web Store
 
-For GitHub:
-1. Create OAuth App at https://github.com/settings/developers
-2. Set redirect URI: `https://YOUR_EXTENSION_ID.chromiumapp.org/`
-3. Add Client ID and Secret to `.env`
+```
+npm run package
+```
 
-For Notion:
-1. Create integration at https://www.notion.so/my-integrations
-2. Set redirect URI: `https://YOUR_EXTENSION_ID.chromiumapp.org/`
-3. Add Client ID and Secret to `.env`
-
-**Note:** Extension ID can be found at `chrome://extensions/` after loading the unpacked extension.
+This creates `duly-noted-v{version}.zip` containing only the files needed for Chrome Web Store submission (manifest, icons, src/).
 
 ### Debugging
 
@@ -264,63 +218,40 @@ For Notion:
 - Select "Inspect"
 - Console shows UI logs
 
-**View Storage:**
-```javascript
-// In any extension context
-chrome.storage.local.get(null, (data) => console.log(data));
-```
-
-**Clear Storage:**
-```javascript
-chrome.storage.local.clear();
-```
-
-## 📚 Documentation
-
-- [Setup Guide](SETUP-OAUTH.md) - Detailed OAuth setup instructions
-- [Notion Setup](NOTION-SETUP.md) - Notion integration guide
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
-- [Testing Guide](TESTING-NOTION.md) - Testing checklist
-- [PRD](PRD.md) - Product requirements
-- [Development Learnings](CHROME-EXTENSION-LEARNINGS.md) - Chrome extension tips
-
-## 🔒 Privacy & Security
+## Privacy & Security
 
 - **Local Storage:** All voice notes are stored locally in Chrome's storage
 - **No Cloud Recording:** Audio is processed in-browser only (Web Speech API)
 - **OAuth Tokens:** Stored securely in `chrome.storage.local`
 - **No Analytics:** We don't track your usage
-- **No Third-Party Servers:** Direct API calls to GitHub/Notion only
+- **Token Exchange:** OAuth token exchange handled via a secure Cloudflare Worker - client secrets never touch the browser
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-
-### Development Guidelines
 
 1. Follow existing code style
 2. Test all changes thoroughly
 3. Update documentation if needed
-4. Commit messages should be clear and descriptive
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file for details
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API)
-- Icons from [Heroicons](https://heroicons.com/)
-- GitHub API integration via [GitHub REST API](https://docs.github.com/en/rest)
-- Notion API integration via [Notion API](https://developers.notion.com/)
+- GitHub API via [GitHub REST API](https://docs.github.com/en/rest)
+- Notion API via [Notion API](https://developers.notion.com/)
+- OAuth token exchange via [Cloudflare Workers](https://workers.cloudflare.com/)
 
-## 📞 Support
+## Support
 
 - **Issues:** [GitHub Issues](https://github.com/DavinciDreams/duly-noted/issues)
 - **Discussions:** [GitHub Discussions](https://github.com/DavinciDreams/duly-noted/discussions)
 
 ---
 
-**Version:** 1.0.0 | **Released:** 2026-02-14
+**Version:** 1.1.0 | **Updated:** 2026-02-16
 
-Made with ❤️ and Claude Code
+Made with Claude Code

@@ -26,6 +26,7 @@ const INCLUDE = [
   'icons/icon-16.png',
   'icons/icon-48.png',
   'icons/icon-128.png',
+  'icons/header-logo.png',
   'src/',
 ];
 
@@ -68,14 +69,6 @@ for (const item of INCLUDE) {
   }
 }
 
-// Verify runtime-config.js exists in staging (needed for OAuth to work)
-const runtimeConfigPath = path.join(staging, 'src', 'config', 'runtime-config.js');
-if (!fs.existsSync(runtimeConfigPath)) {
-  console.error('WARNING: src/config/runtime-config.js not found!');
-  console.error('Run "npm run build:config" first to generate OAuth config.');
-  process.exit(1);
-}
-
 // Create zip using PowerShell Compress-Archive
 // Use single quotes inside PowerShell to handle paths with spaces
 try {
@@ -98,7 +91,7 @@ console.log(`Location: ${zipPath}`);
 // List contents summary
 console.log('\nIncluded:');
 console.log('  manifest.json');
-console.log('  icons/ (3 PNGs)');
+console.log('  icons/ (3 favicon PNGs + header logo SVG)');
 console.log('  src/ (all source files)');
 console.log('\nExcluded:');
 console.log('  .env, .env.example, .gitignore');
