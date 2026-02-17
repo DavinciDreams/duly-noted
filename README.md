@@ -2,9 +2,9 @@
 
 **capture creativity**
 
-A Chrome extension that lets you quickly capture voice notes with real-time transcription. Send notes to GitHub Issues, GitHub Projects, Notion, or save them locally as drafts. Never lose a great idea again.
+A Chrome extension that lets you quickly capture voice notes, screenshots, page elements, and console logs — then send them to GitHub Issues, GitHub Projects, Notion, or save locally as drafts. Never lose a great idea again.
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.1.0)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/DavinciDreams/duly-noted/releases/tag/v1.2.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Features & Screenshots
@@ -15,9 +15,10 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 
 ### Voice Recording & Transcription
 - **Real-time transcription** using Web Speech API
-- **Editable transcripts** - fix any errors before sending
+- **Always-editable note box** - type a note, record voice, or both
 - **Circular radial audio visualizer** - reactive to your voice in real-time
 - **High accuracy** speech-to-text conversion
+- **AI smart titles** - auto-generates issue titles from your content
 
 </td>
 <td width="50%">
@@ -29,6 +30,16 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 <tr>
 <td width="50%">
 
+### Quick Capture Tools
+- **Screenshot** - capture the visible tab with one click
+- **Element Selector** - hover and click to capture any DOM element (CSS selector, XPath, computed styles)
+- **Console Logs** - intercept and capture console output, errors, and unhandled rejections
+- **Mix and match** - combine voice, typed notes, screenshots, elements, and logs in a single note
+- **No recording required** - capture a screenshot or element and send it without ever pressing record
+
+</td>
+<td width="50%">
+
 ### Destination Chooser
 - **Choose your destination** - GitHub, Notion, or Draft
 - **Preview your note** before sending
@@ -36,16 +47,16 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 - **Smart routing** to the right tool
 
 </td>
-<td width="50%">
-
-![Destination Chooser](assets/Screenshot%202026-02-14%20063151.png)
-
-</td>
 </tr>
 </table>
 
+![Destination Chooser](assets/Screenshot%202026-02-14%20063151.png)
+
 ### GitHub Integration
-- **Create GitHub Issues** directly from voice notes
+- **Create GitHub Issues** directly from voice notes, typed notes, or captures
+- **Screenshots uploaded** to `.github/screenshots/` in your repo and embedded as images
+- **Element data** included as a markdown table (tag, classes, dimensions, selector)
+- **Console logs** included as formatted code blocks
 - **Add to GitHub Projects** with custom fields
 - **OAuth authentication** - secure, no tokens to manage
 - **Repository selection** - choose from all your repos
@@ -55,6 +66,8 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 
 ### Notion Integration
 - **Send to Notion databases** or create child pages
+- **Screenshots uploaded** via Notion File Upload API and embedded as image blocks
+- **Element & console data** included as code blocks
 - **OAuth authentication** - secure workspace connection
 - **Auto-formatting** - first line becomes title
 - **Smart detection** - finds all accessible databases and pages
@@ -63,8 +76,7 @@ A Chrome extension that lets you quickly capture voice notes with real-time tran
 ![Notion Integration](assets/Screenshot%202026-02-14%20063601.png)
 
 ### History & Organization
-- **Recent notes** preview in sidebar
-- **Full history view** with filtering
+- **Dedicated history screen** with filtering and search
 - **Click to open** - direct links to GitHub/Notion
 - **Persistent storage** - never lose your notes
 - **Metadata tracking** - timestamps, destinations, and more
@@ -106,13 +118,17 @@ No build step, no API keys, no accounts to create. Just:
 
 1. Click the Duly Noted icon in your toolbar (or press `Alt+Shift+V`)
 2. Grant microphone permission when prompted
-3. Click **Start Recording** and speak your note
-4. Click **Stop & Send** when done
-5. Choose a destination — GitHub Issue, GitHub Project, Notion, or save as draft
+3. You'll see the home screen with the audio visualizer, a note box, and Quick Capture tools
+4. **To record voice:** Click **Start Recording**, speak, then click **Stop**. Your transcription appears in the note box — edit it if needed.
+5. **To type a note:** Just start typing in the note box. No recording required.
+6. **To capture a screenshot:** Click the camera icon under Quick Capture.
+7. **To select an element:** Click the crosshair icon, hover over an element on the page, and click to capture it.
+8. **To capture console logs:** Click the terminal icon to start monitoring, then fetch logs when ready.
+9. When you have any content (text, screenshots, elements, or logs), click **Choose Destination** to send.
 
 ### Connecting GitHub
 
-1. Click the **Settings** gear icon
+1. Click the **Settings** gear icon (or the clock icon for history)
 2. Scroll to "GitHub Integration"
 3. Click **Sign in with GitHub**
 4. Authorize the app — you'll be redirected back automatically
@@ -140,6 +156,21 @@ Then load unpacked in Chrome (same steps as above, pointing at the repo folder).
 
 There is **no build step** — the extension runs plain JS modules directly. Just edit and reload.
 
+### Architecture
+
+```
+src/
+├── sidepanel/          # Main UI (HTML, CSS, JS)
+├── service-worker/     # Background service worker
+├── offscreen/          # Offscreen document (audio recording, clipboard)
+├── content-scripts/    # Page context (element inspector, console interceptor)
+├── lib/                # Shared libraries (storage, transcription, GitHub, Notion, OAuth)
+├── utils/              # Utility functions
+├── permission/         # Microphone permission popup
+├── oauth/              # OAuth callback page
+└── fonts/              # Local fonts
+```
+
 ### Packaging
 
 **For Chrome Web Store:**
@@ -157,14 +188,17 @@ The `--friends` flag injects a public key into the manifest so every unpacked in
 
 - **Service Worker Console:** Go to `chrome://extensions/` > click "service worker" link under Duly Noted
 - **Side Panel Console:** Right-click inside the side panel > "Inspect"
+- **Content Script Console:** Open DevTools on any page > Console tab (content scripts log here)
 
 ## Privacy & Security
 
 - **Local Storage:** All voice notes are stored locally in Chrome's storage
 - **No Cloud Recording:** Audio is processed in-browser only (Web Speech API)
+- **Screenshots in memory only:** Captured screenshots are held in JS memory, not persisted to storage
 - **OAuth Tokens:** Stored securely in `chrome.storage.local`, never shared
 - **No Analytics:** We don't track your usage
 - **Token Exchange:** OAuth token exchange handled via a secure Cloudflare Worker — client secrets never touch the browser
+- **Permissions:** `tabs` and `activeTab` for screenshot capture; `scripting` for element/console inspection; `clipboardWrite` for copy-to-clipboard
 
 ## Contributing
 
@@ -180,9 +214,10 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - GitHub API via [GitHub REST API](https://docs.github.com/en/rest)
 - Notion API via [Notion API](https://developers.notion.com/)
 - OAuth token exchange via [Cloudflare Workers](https://workers.cloudflare.com/)
+- AI titles via [Chrome Prompt API](https://developer.chrome.com/docs/extensions/ai/prompt-api) (Gemini Nano)
 
 ---
 
-**Version:** 1.1.0 | **Updated:** 2026-02-17
+**Version:** 1.2.0 | **Updated:** 2026-02-17
 
 Made with Claude Code

@@ -17,8 +17,8 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 ## File Inventory
 
 ### Core Files
-- `manifest.json` - Chrome MV3 manifest, v1.1.0, permissions: tabs, activeTab, scripting, clipboardWrite
-- `src/sidepanel/sidepanel.html` - Main side panel UI (6 screens + Page Context toolbar)
+- `manifest.json` - Chrome MV3 manifest, v1.2.0, permissions: tabs, activeTab, scripting, clipboardWrite
+- `src/sidepanel/sidepanel.html` - Main side panel UI (6 screens, always-visible note box + Quick Capture toolbar)
 - `src/sidepanel/sidepanel.css` - All styles (dark glassmorphic theme + attachment components)
 - `src/sidepanel/sidepanel.js` - UI controller (recording, destinations, settings, history, page context capture)
 - `src/permission/permission.html` - Microphone permission popup (inline styles)
