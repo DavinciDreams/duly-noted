@@ -32,6 +32,7 @@ const INCLUDE = [
   'icons/icon-128.png',
   'icons/header-logo.png',
   'src/',
+  'models/',
 ];
 
 // Files to EXCLUDE even if inside included dirs
