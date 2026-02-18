@@ -1300,6 +1300,13 @@ async function loadSettings() {
 
 async function handleSaveSettings() {
   try {
+    // Auto-commit any text left in the default tags input as a pill
+    const pendingTag = defaultTagsInput.value.trim();
+    if (pendingTag) {
+      addDefaultTagPill(pendingTag);
+      defaultTagsInput.value = '';
+    }
+
     const pat = githubTokenInput.value.trim() || null;
     const updates = {
       githubToken: pat,
@@ -1311,6 +1318,7 @@ async function handleSaveSettings() {
       defaultTags: getDefaultTagsFromPills(),
     };
 
+    console.log('[Settings Save] defaultTags being saved:', JSON.stringify(updates.defaultTags));
     const success = await updateSettings(updates);
 
     if (success) {
@@ -1979,11 +1987,15 @@ async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
     issueBody.value = currentTranscription;
 
     // Always add default tags first
-    if (Array.isArray(settings.defaultTags)) {
+    console.log('[GitHub Issue] settings.defaultTags:', JSON.stringify(settings.defaultTags));
+    console.log('[GitHub Issue] selectedLabels before defaults:', JSON.stringify(selectedLabels));
+    if (Array.isArray(settings.defaultTags) && settings.defaultTags.length > 0) {
       for (const tag of settings.defaultTags) {
+        console.log('[GitHub Issue] Adding default tag:', tag);
         addSelectedLabel(tag, null);
       }
     }
+    console.log('[GitHub Issue] selectedLabels after defaults:', JSON.stringify(selectedLabels));
 
     // Set a temporary smart title while AI runs in parallel
     const smartDefault = generateSmartTitle();
@@ -2014,6 +2026,7 @@ async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
     // Apply AI results now that both are done
     const needsAITitle = settings.aiAutoTitle !== false;
     const needsAITags = settings.aiAutoTags !== false;
+    console.log('[GitHub Issue] AI summary status:', aiSummary?.status, 'suggestedTags:', JSON.stringify(aiSummary?.suggestedTags));
     if (aiSummary?.status === 'done') {
       if (needsAITitle && aiSummary.title) {
         const currentTitle = issueTitle.value.trim();
