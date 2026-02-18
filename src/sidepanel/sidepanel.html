@@ -490,12 +490,45 @@
               </svg>
               AI Summary
             </h3>
-            <p class="help-text">Automatically analyze captures to generate summaries, titles, and suggested tags.</p>
+            <p class="help-text">Automatically analyze captures using on-device AI.</p>
             <div class="developer-mode-toggle">
               <label class="toggle-label">
                 <input type="checkbox" id="aiSummaryToggle" checked>
                 <span>Enable AI Summary</span>
               </label>
+            </div>
+            <div id="aiSubToggles" class="ai-sub-toggles">
+              <label class="toggle-label">
+                <input type="checkbox" id="aiAutoTitleToggle" checked>
+                <span>Auto-fill issue title</span>
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="aiAutoTagsToggle" checked>
+                <span>Auto-suggest labels</span>
+              </label>
+              <label class="toggle-label">
+                <input type="checkbox" id="aiAutoDescriptionToggle" checked>
+                <span>Auto-fill description</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-section">
+            <h3>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+              Default Labels
+            </h3>
+            <p class="help-text">These labels are automatically added to every GitHub issue.</p>
+            <div class="default-tags-section">
+              <div id="defaultTagsContainer" class="selected-labels"></div>
+              <input
+                type="text"
+                id="defaultTagsInput"
+                class="input"
+                placeholder="Type a label and press Enter..."
+                autocomplete="off">
             </div>
           </div>
 

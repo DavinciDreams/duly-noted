@@ -115,9 +115,17 @@ let aiSummaryDebounceTimer = null;
 
 // AI Summary elements
 const aiSummaryToggle = document.getElementById('aiSummaryToggle');
+const aiAutoTitleToggle = document.getElementById('aiAutoTitleToggle');
+const aiAutoTagsToggle = document.getElementById('aiAutoTagsToggle');
+const aiAutoDescriptionToggle = document.getElementById('aiAutoDescriptionToggle');
+const aiSubToggles = document.getElementById('aiSubToggles');
 const aiSummaryCard = document.getElementById('aiSummaryCard');
 const aiSummaryContent = document.getElementById('aiSummaryContent');
 const aiSummaryTags = document.getElementById('aiSummaryTags');
+
+// Default tags elements
+const defaultTagsContainer = document.getElementById('defaultTagsContainer');
+const defaultTagsInput = document.getElementById('defaultTagsInput');
 
 // GitHub OAuth elements
 const githubOAuthSection = document.getElementById('githubOAuthSection');
@@ -300,6 +308,56 @@ document.getElementById('dismissAISummary')?.addEventListener('click', () => {
   aiSummary = null;
   renderAISummaryUI();
 });
+
+// AI master toggle → enable/disable sub-toggles
+aiSummaryToggle.addEventListener('change', () => {
+  aiSubToggles.classList.toggle('disabled', !aiSummaryToggle.checked);
+});
+
+// Default tags input — Enter to add pill
+defaultTagsInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const tag = defaultTagsInput.value.trim();
+    if (tag) {
+      addDefaultTagPill(tag);
+      defaultTagsInput.value = '';
+    }
+  }
+});
+
+// --- Default tags pill helpers (settings section) ---
+function addDefaultTagPill(tag) {
+  // Prevent duplicates
+  const existing = defaultTagsContainer.querySelectorAll('.label-pill');
+  for (const pill of existing) {
+    if (pill.getAttribute('data-label').toLowerCase() === tag.toLowerCase()) return;
+  }
+
+  const pill = document.createElement('span');
+  pill.className = 'label-pill';
+  pill.setAttribute('data-label', tag);
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'label-pill-name';
+  nameSpan.textContent = tag;
+  pill.appendChild(nameSpan);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'label-pill-remove';
+  removeBtn.type = 'button';
+  removeBtn.innerHTML = '&times;';
+  removeBtn.setAttribute('aria-label', `Remove default label ${tag}`);
+  removeBtn.addEventListener('click', () => pill.remove());
+  pill.appendChild(removeBtn);
+
+  defaultTagsContainer.appendChild(pill);
+}
+
+function getDefaultTagsFromPills() {
+  const pills = defaultTagsContainer.querySelectorAll('.label-pill');
+  return Array.from(pills).map(p => p.getAttribute('data-label'));
+}
 
 // Listen for messages from content scripts (via service worker)
 chrome.runtime.onMessage.addListener((message) => {
@@ -1081,12 +1139,25 @@ async function showDestinationChooser() {
 async function handleDestinationSelected(destination) {
   console.log('[Side Panel] Destination selected:', destination);
 
+  // Kick off AI re-run immediately so it runs in parallel with form loading.
+  // The user's full description (currentTranscription) is available now.
+  let aiReadyPromise = Promise.resolve();
+  if (destination !== 'draft') {
+    const { getSettings } = await import('../lib/storage.js');
+    const settings = await getSettings();
+    const needsAI = settings.aiSummaryEnabled !== false &&
+      (settings.aiAutoTitle !== false || settings.aiAutoTags !== false);
+    if (needsAI) {
+      aiReadyPromise = generateAISummary();
+    }
+  }
+
   if (destination === 'draft') {
     await saveDraft();
   } else if (destination === 'github-issue') {
-    await showGitHubIssueForm();
+    await showGitHubIssueForm(aiReadyPromise);
   } else if (destination === 'github-project') {
-    await showGitHubProjectForm();
+    await showGitHubProjectForm(aiReadyPromise);
   } else if (destination === 'notion') {
     await handleNotionDestination();
   } else {
@@ -1198,6 +1269,20 @@ async function loadSettings() {
     maxDurationInput.value = settings.maxRecordingDuration || 300;
     aiSummaryToggle.checked = settings.aiSummaryEnabled !== false;
 
+    // Granular AI sub-toggles
+    aiAutoTitleToggle.checked = settings.aiAutoTitle !== false;
+    aiAutoTagsToggle.checked = settings.aiAutoTags !== false;
+    aiAutoDescriptionToggle.checked = settings.aiAutoDescription !== false;
+    aiSubToggles.classList.toggle('disabled', !aiSummaryToggle.checked);
+
+    // Default tags pills
+    defaultTagsContainer.innerHTML = '';
+    if (Array.isArray(settings.defaultTags)) {
+      for (const tag of settings.defaultTags) {
+        addDefaultTagPill(tag);
+      }
+    }
+
     // Sync theme toggle UI
     updateThemeSwitcherUI(settings.theme || 'auto');
 
@@ -1217,6 +1302,10 @@ async function handleSaveSettings() {
       githubToken: pat,
       maxRecordingDuration: parseInt(maxDurationInput.value) || 300,
       aiSummaryEnabled: aiSummaryToggle.checked,
+      aiAutoTitle: aiAutoTitleToggle.checked,
+      aiAutoTags: aiAutoTagsToggle.checked,
+      aiAutoDescription: aiAutoDescriptionToggle.checked,
+      defaultTags: getDefaultTagsFromPills(),
     };
 
     const success = await updateSettings(updates);
@@ -1872,21 +1961,25 @@ let selectedRepo = null;
 let repoLabels = [];
 let selectedLabels = [];
 
-async function showGitHubIssueForm() {
+async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
   try {
+    const { getSettings } = await import('../lib/storage.js');
+    const settings = await getSettings();
+
     // Pre-fill issue body with transcription
     issueBody.value = currentTranscription;
 
-    // Pre-fill title with AI or smart default
-    if (!issueTitle.value.trim()) {
-      issueTitle.value = (aiSummary?.status === 'done' && aiSummary.title) ? aiSummary.title : generateSmartTitle();
-    }
-
-    // Pre-fill labels with AI-suggested tags (will be refined after repo labels load)
-    if (aiSummary?.status === 'done' && aiSummary.suggestedTags?.length > 0) {
-      for (const tag of aiSummary.suggestedTags) {
+    // Always add default tags first
+    if (Array.isArray(settings.defaultTags)) {
+      for (const tag of settings.defaultTags) {
         addSelectedLabel(tag, null);
       }
+    }
+
+    // Set a temporary smart title while AI runs in parallel
+    const smartDefault = generateSmartTitle();
+    if (!issueTitle.value.trim()) {
+      issueTitle.value = smartDefault;
     }
 
     // Show attachment preview if any exist
@@ -1896,15 +1989,34 @@ async function showGitHubIssueForm() {
       renderAttachmentsInto(issueAttachmentsPreview);
     }
 
-    // Load repositories
+    // Load repos + wait for AI in parallel
     showToast('Loading repositories...', 'info');
-    repositories = await GitHubService.fetchRepositories();
+    const [repoResult] = await Promise.all([
+      GitHubService.fetchRepositories(),
+      aiReadyPromise,
+    ]);
+    repositories = repoResult;
     console.log(`[GitHub Issue] Loaded ${repositories.length} repositories`);
+
+    // Apply AI results now that both are done
+    const needsAITitle = settings.aiAutoTitle !== false;
+    const needsAITags = settings.aiAutoTags !== false;
+    if (aiSummary?.status === 'done') {
+      if (needsAITitle && aiSummary.title) {
+        const currentTitle = issueTitle.value.trim();
+        if (!currentTitle || currentTitle === smartDefault) {
+          issueTitle.value = aiSummary.title;
+        }
+      }
+      if (needsAITags && aiSummary.suggestedTags?.length > 0) {
+        for (const tag of aiSummary.suggestedTags) {
+          addSelectedLabel(tag, null);
+        }
+      }
+    }
 
     // Show the form
     showScreen(screens.GITHUB_ISSUE);
-
-    // Focus title input
     issueTitle.focus();
   } catch (error) {
     console.error('[GitHub Issue] Error loading repositories:', error);
@@ -2211,11 +2323,15 @@ async function handleCreateIssue() {
       body = body ? body + '\n\n---\n\n**Source:** ' + aiSummary.sourceCitation : '**Source:** ' + aiSummary.sourceCitation;
     }
 
+    // Branding footer
+    const titleText = issueTitle.value.trim();
+    body += `\n\n---\n*\u2014${titleText} noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
+
     createIssueBtn.textContent = 'Creating issue...';
 
     // Create issue data with selected labels
     const issueData = {
-      title: issueTitle.value.trim(),
+      title: titleText,
       body: body,
       labels: selectedLabels.length > 0 ? [...selectedLabels] : undefined
     };
@@ -2336,25 +2452,39 @@ function hideHistoryDetailModal() {
 let projects = [];
 let selectedProject = null;
 
-async function showGitHubProjectForm() {
+async function showGitHubProjectForm(aiReadyPromise = Promise.resolve()) {
   try {
+    const { getSettings } = await import('../lib/storage.js');
+    const settings = await getSettings();
+
     // Pre-fill item body with transcription
     projectItemBody.value = currentTranscription;
 
-    // Pre-fill title with AI or smart default
+    // Set a temporary smart title while AI runs in parallel
+    const smartDefault = generateSmartTitle();
     if (!projectItemTitle.value.trim()) {
-      projectItemTitle.value = (aiSummary?.status === 'done' && aiSummary.title) ? aiSummary.title : generateSmartTitle();
+      projectItemTitle.value = smartDefault;
     }
 
-    // Load projects
+    // Load projects + wait for AI in parallel
     showToast('Loading projects...', 'info');
-    projects = await GitHubService.fetchProjects();
+    const [projectResult] = await Promise.all([
+      GitHubService.fetchProjects(),
+      aiReadyPromise,
+    ]);
+    projects = projectResult;
     console.log(`[GitHub Project] Loaded ${projects.length} projects`);
+
+    // Apply AI title now that both are done
+    if (settings.aiAutoTitle !== false && aiSummary?.status === 'done' && aiSummary.title) {
+      const currentTitle = projectItemTitle.value.trim();
+      if (!currentTitle || currentTitle === smartDefault) {
+        projectItemTitle.value = aiSummary.title;
+      }
+    }
 
     // Show the form
     showScreen(screens.GITHUB_PROJECT);
-
-    // Focus title input
     projectItemTitle.focus();
   } catch (error) {
     console.error('[GitHub Project] Error loading projects:', error);
@@ -2478,10 +2608,14 @@ async function handleCreateProjectItem() {
     createProjectItemBtn.disabled = true;
     createProjectItemBtn.textContent = 'Adding...';
 
-    // Create draft issue data
+    // Create draft issue data with branding footer
+    const projTitle = projectItemTitle.value.trim();
+    let projBody = projectItemBody.value.trim();
+    projBody += `\n\n---\n*\u2014${projTitle} noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
+
     const itemData = {
-      title: projectItemTitle.value.trim(),
-      body: projectItemBody.value.trim()
+      title: projTitle,
+      body: projBody
     };
 
     console.log('[GitHub Project] Creating draft issue:', itemData);
@@ -2728,6 +2862,15 @@ async function generateAISummary() {
   const settings = await getSettings();
   if (settings.aiSummaryEnabled === false) return;
 
+  // Check if any sub-toggle is enabled — skip AI call entirely if nothing is wanted
+  const wantTitle = settings.aiAutoTitle !== false;
+  const wantTags = settings.aiAutoTags !== false;
+  const wantDescription = settings.aiAutoDescription !== false;
+  if (!wantTitle && !wantTags && !wantDescription) {
+    console.log('[AI Summary] All sub-toggles off, skipping AI call');
+    return;
+  }
+
   if (!self.ai?.languageModel) {
     console.log('[AI Summary] Prompt API not available');
     return;
@@ -2784,17 +2927,26 @@ async function generateAISummary() {
       context += `\nUser note: "${currentTranscription.slice(0, 200)}"\n`;
     }
 
-    context += `
-Respond with ONLY valid JSON (no markdown, no backticks):
-{
-  "title": "short issue title under 60 chars",
-  "description": "1-2 sentence summary of what this capture shows, where it is from, and what it depicts",
-  "suggestedTags": ["tag1", "tag2"],
-  "consoleSummary": "one-line plain English summary of console logs, or empty string if none"
-}
+    // Dynamically build JSON schema based on enabled sub-toggles
+    const jsonFields = [];
+    const fieldInstructions = [];
 
-For suggestedTags, choose 1-3 from: ${repoLabels.length > 0 ? repoLabels.map(l => l.name).join(', ') : 'bug, enhancement, UI, performance, error, accessibility, styling, API, security, documentation'}.
-For consoleSummary, summarize errors/warnings in plain English. If no console logs, use empty string.`;
+    if (wantTitle) {
+      jsonFields.push('"title": "short issue title under 60 chars"');
+    }
+    if (wantDescription) {
+      jsonFields.push('"description": "1-2 sentence summary of what this capture shows, where it is from, and what it depicts"');
+    }
+    if (wantTags) {
+      jsonFields.push('"suggestedTags": ["tag1", "tag2"]');
+      const tagList = repoLabels.length > 0 ? repoLabels.map(l => l.name).join(', ') : 'bug, enhancement, UI, performance, error, accessibility, styling, API, security, documentation';
+      fieldInstructions.push(`For suggestedTags, choose 1-3 from: ${tagList}.`);
+    }
+    // Always include consoleSummary (cheap, used in Notion flow)
+    jsonFields.push('"consoleSummary": "one-line plain English summary of console logs, or empty string if none"');
+    fieldInstructions.push('For consoleSummary, summarize errors/warnings in plain English. If no console logs, use empty string.');
+
+    context += `\nRespond with ONLY valid JSON (no markdown, no backticks):\n{\n  ${jsonFields.join(',\n  ')}\n}\n\n${fieldInstructions.join('\n')}`;
 
     promptParts.push({ type: 'text', value: context });
 
@@ -2913,9 +3065,14 @@ function renderAISummaryUI() {
 
 /**
  * Apply AI summary auto-fill to the note box if user hasn't typed anything.
+ * Respects the aiAutoDescription setting.
  */
-function applyAISummaryAutoFill() {
+async function applyAISummaryAutoFill() {
   if (!aiSummary || aiSummary.status !== 'done') return;
+
+  const { getSettings } = await import('../lib/storage.js');
+  const settings = await getSettings();
+  if (settings.aiAutoDescription === false) return;
 
   const noteBoxEmpty = noteBox.textContent.trim().length === 0;
   if (noteBoxEmpty && aiSummary.description) {

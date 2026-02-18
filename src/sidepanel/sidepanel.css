@@ -1214,6 +1214,24 @@ textarea:focus-visible,
   color: var(--text-primary);
 }
 
+.ai-sub-toggles {
+  margin-top: var(--spacing-sm);
+  margin-left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  transition: opacity var(--transition-fast);
+}
+
+.ai-sub-toggles.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.default-tags-section {
+  margin-top: var(--spacing-sm);
+}
+
 /* ============================================================================
    GitHub Issue Form
    ============================================================================ */
