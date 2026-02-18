@@ -298,6 +298,24 @@ export class GitHubService {
   }
 
   /**
+   * Get the latest issue/PR number in a repository.
+   * GitHub numbers issues and PRs in a single sequence.
+   * @param {string} owner - Repository owner
+   * @param {string} repo - Repository name
+   * @returns {Promise<number>} Latest issue/PR number (0 if none)
+   */
+  static async getLatestIssueNumber(owner, repo) {
+    try {
+      const issues = await this.apiRequest(
+        `/repos/${owner}/${repo}/issues?per_page=1&state=all&sort=created&direction=desc`
+      );
+      return issues.length > 0 ? issues[0].number : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  /**
    * Search repositories by name
    * @param {string} query - Search query
    * @param {Array} repositories - Repository list to search within
