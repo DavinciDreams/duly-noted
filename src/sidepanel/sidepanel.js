@@ -1148,7 +1148,10 @@ async function handleDestinationSelected(destination) {
     const needsAI = settings.aiSummaryEnabled !== false &&
       (settings.aiAutoTitle !== false || settings.aiAutoTags !== false);
     if (needsAI) {
-      aiReadyPromise = generateAISummary();
+      // Wrap in .catch() so AI failure never crashes the GitHub/form loading flow
+      aiReadyPromise = generateAISummary().catch(err => {
+        console.warn('[AI Summary] Non-blocking AI error:', err);
+      });
     }
   }
 
@@ -1333,11 +1336,11 @@ async function handleSaveSettings() {
           return;
         }
       } else {
-        // PAT was cleared - remove top-level token if it was a PAT
-        // (don't clear if user is OAuth-authenticated)
-        const { githubRefreshToken } = await chrome.storage.local.get('githubRefreshToken');
-        if (!githubRefreshToken) {
-          // No refresh token means this was a PAT, not OAuth - safe to clear
+        // No PAT entered — only clear token if user is in developer mode
+        // (meaning they explicitly chose PAT auth and cleared it).
+        // Never clear an OAuth token just because the PAT field is empty.
+        const isDeveloperMode = document.getElementById('developerModeToggle')?.checked;
+        if (isDeveloperMode) {
           await chrome.storage.local.remove(['githubToken', 'githubTokenExpiry', 'githubRefreshToken', 'githubUsername']);
           await updateGitHubConnectionUI();
           updateDestinationOptions();
@@ -1488,8 +1491,11 @@ async function handleTestGitHubConnection() {
   testGitHubBtn.disabled = true;
   testGitHubBtn.textContent = 'Testing...';
 
+  // Save existing tokens so we can restore on failure
+  const previousTokens = await chrome.storage.local.get(['githubToken', 'githubTokenExpiry', 'githubRefreshToken']);
+
   try {
-    // Temporarily store the token so GitHubService can use it
+    // Temporarily store the PAT so GitHubService can use it
     await chrome.storage.local.set({
       githubToken: pat,
       githubTokenExpiry: null,
@@ -1499,8 +1505,8 @@ async function handleTestGitHubConnection() {
     const user = await GitHubService.getUser();
     showToast(`Connection successful! Logged in as @${user.login}`, 'success');
   } catch (error) {
-    // Clear the invalid token
-    await chrome.storage.local.remove(['githubToken', 'githubTokenExpiry', 'githubRefreshToken']);
+    // Restore previous tokens (may be OAuth) instead of clearing everything
+    await chrome.storage.local.set(previousTokens);
     showToast(`Connection failed: ${error.message}`, 'error');
   } finally {
     testGitHubBtn.disabled = false;
@@ -1963,6 +1969,9 @@ let selectedLabels = [];
 
 async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
   try {
+    // Reset form to clean state before populating
+    resetIssueForm();
+
     const { getSettings } = await import('../lib/storage.js');
     const settings = await getSettings();
 
@@ -1989,13 +1998,17 @@ async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
       renderAttachmentsInto(issueAttachmentsPreview);
     }
 
-    // Load repos + wait for AI in parallel
+    // Load repos + wait for AI in parallel (allSettled so AI failure can't break repo load)
     showToast('Loading repositories...', 'info');
-    const [repoResult] = await Promise.all([
+    const [repoResult] = await Promise.allSettled([
       GitHubService.fetchRepositories(),
       aiReadyPromise,
     ]);
-    repositories = repoResult;
+    if (repoResult.status === 'fulfilled') {
+      repositories = repoResult.value;
+    } else {
+      throw repoResult.reason;
+    }
     console.log(`[GitHub Issue] Loaded ${repositories.length} repositories`);
 
     // Apply AI results now that both are done
@@ -2325,7 +2338,7 @@ async function handleCreateIssue() {
 
     // Branding footer
     const titleText = issueTitle.value.trim();
-    body += `\n\n---\n*\u2014${titleText} noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
+    body += `\n\n---\n*\u2014noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
 
     createIssueBtn.textContent = 'Creating issue...';
 
@@ -2466,13 +2479,17 @@ async function showGitHubProjectForm(aiReadyPromise = Promise.resolve()) {
       projectItemTitle.value = smartDefault;
     }
 
-    // Load projects + wait for AI in parallel
+    // Load projects + wait for AI in parallel (allSettled so AI failure can't break project load)
     showToast('Loading projects...', 'info');
-    const [projectResult] = await Promise.all([
+    const [projectResult] = await Promise.allSettled([
       GitHubService.fetchProjects(),
       aiReadyPromise,
     ]);
-    projects = projectResult;
+    if (projectResult.status === 'fulfilled') {
+      projects = projectResult.value;
+    } else {
+      throw projectResult.reason;
+    }
     console.log(`[GitHub Project] Loaded ${projects.length} projects`);
 
     // Apply AI title now that both are done
@@ -2611,7 +2628,7 @@ async function handleCreateProjectItem() {
     // Create draft issue data with branding footer
     const projTitle = projectItemTitle.value.trim();
     let projBody = projectItemBody.value.trim();
-    projBody += `\n\n---\n*\u2014${projTitle} noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
+    projBody += `\n\n---\n*\u2014noted by [Duly Noted](https://github.com/DavinciDreams/duly-noted)*`;
 
     const itemData = {
       title: projTitle,
@@ -3118,8 +3135,7 @@ function generateSmartTitle() {
   }
 
   if (currentTranscription) {
-    const firstLine = currentTranscription.trim().split('\n')[0];
-    return truncateText(firstLine, 60);
+    return 'Voice Note';
   }
 
   return '';

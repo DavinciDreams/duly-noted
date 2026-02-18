@@ -62,7 +62,7 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - AI auto-fill (populates note box when empty, shows in card when user has typed)
 - AI tag suggestions (auto-populate GitHub Issue labels from real repo labels)
 - Label autocomplete picker (fetches repo labels, colored pills, searchable dropdown, 24hr cache)
-- Smart title auto-fill (AI title → element name + hostname → transcription first line → date fallback)
+- Smart title auto-fill (AI title → element name + hostname → 'Voice Note' fallback)
 - Notion console log blocks (AI-summarized + raw log entries)
 
 ### Known Issues
@@ -75,6 +75,22 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - Dropdown keyboard navigation not implemented (arrow keys, Enter/Space)
 
 ### Recent Changes
+
+#### 2026-02-17 - Fix Auth, Tagline, Title, Default Tags
+
+**Root cause**: `handleSaveSettings()` nuked the OAuth token every time settings were saved. GitHub standard OAuth has no refresh token, so `null` was misread as "PAT, safe to clear."
+
+**Files Modified (1):** `src/sidepanel/sidepanel.js`
+- **handleSaveSettings()**: Only clear tokens when developer mode toggle is active
+- **handleTestGitHubConnection()**: Save/restore previous tokens on failure
+- **handleDestinationSelected()**: Wrapped AI promise with `.catch()`
+- **showGitHubIssueForm/ProjectForm()**: `Promise.all` → `Promise.allSettled`; added `resetIssueForm()` at form open
+- **handleCreateIssue/ProjectItem()**: Tagline → `—noted by Duly Noted`
+- **generateSmartTitle()**: Transcription fallback → `'Voice Note'`
+
+**Status:** Code complete, needs manual verification.
+
+---
 
 #### 2026-02-17 - Label Autocomplete + AI Auto-Tagging from Repo Labels
 
