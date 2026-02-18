@@ -60,7 +60,8 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - Notion attachments (screenshots via Notion File Upload API as image blocks, element info as code blocks)
 - AI Summary system (Chrome Prompt API — description, suggested tags, source citation, console summary)
 - AI auto-fill (populates note box when empty, shows in card when user has typed)
-- AI tag suggestions (auto-populate GitHub Issue labels)
+- AI tag suggestions (auto-populate GitHub Issue labels from real repo labels)
+- Label autocomplete picker (fetches repo labels, colored pills, searchable dropdown, 24hr cache)
 - Smart title auto-fill (AI title → element name + hostname → transcription first line → date fallback)
 - Notion console log blocks (AI-summarized + raw log entries)
 
@@ -74,6 +75,42 @@ Side Panel → Service Worker → Offscreen Doc → navigator.clipboard.write (s
 - Dropdown keyboard navigation not implemented (arrow keys, Enter/Space)
 
 ### Recent Changes
+
+#### 2026-02-17 - Label Autocomplete + AI Auto-Tagging from Repo Labels
+
+**Goal**: Fetch real GitHub repo labels when a repository is selected, show them in an autocomplete dropdown with colored pills, and make Gemini Nano suggest tags from the user's actual repo labels instead of a hardcoded generic list.
+
+**Files Modified (4):**
+
+1. `src/lib/github-cache.js`
+   - Added `cacheLabels(repoFullName, labels)` — per-repo label caching with 24hr TTL
+   - Added `getLabels(repoFullName)` — returns cached labels or null
+   - Updated `clearAll()` — dynamically finds and removes all `githubLabels_*` keys
+
+2. `src/sidepanel/sidepanel.html`
+   - Replaced plain `#issueLabels` text input with label picker: `#selectedLabelsContainer` (pills) + `#labelSearchInput` (autocomplete) + `#labelDropdown` (dropdown list)
+
+3. `src/sidepanel/sidepanel.css`
+   - Added `.label-picker`, `.selected-labels`, `.label-pill` (with color dot, name, X remove)
+   - Added `.label-item` (dropdown item with color swatch + name + description)
+   - Added `.label-empty`, `.label-add-custom` (custom label option)
+
+4. `src/sidepanel/sidepanel.js`
+   - Added state: `repoLabels`, `selectedLabels`
+   - Added element refs: `labelSearchInput`, `labelDropdown`, `selectedLabelsContainer`
+   - Added `fetchRepoLabels(owner, repo)` — fetches/caches labels, matches AI tags against real labels
+   - Added `showLabelDropdown()`, `hideLabelDropdown()`, `handleLabelSearch()`, `renderLabelDropdown()`
+   - Added `addSelectedLabel(name, color)` — creates colored pill with remove button
+   - Added label search event listeners (input, focus, blur, Enter key for custom labels)
+   - Updated `handleRepoSelected()` — calls `fetchRepoLabels()` after repo selection
+   - Updated `handleCreateIssue()` — uses `selectedLabels` array instead of parsing comma text
+   - Updated `resetIssueForm()` — clears label state, pills, and dropdown
+   - Updated `showGitHubIssueForm()` — pre-fills AI tags as pills via `addSelectedLabel()`
+   - Updated `generateAISummary()` — prompt uses `repoLabels` names when available, falls back to hardcoded list
+
+**Status:** Code complete, needs manual verification.
+
+---
 
 #### 2026-02-17 - AI Summary System
 

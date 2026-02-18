@@ -130,16 +130,61 @@ export class GitHubCache {
   }
 
   /**
-   * Clear all GitHub caches
+   * Cache labels for a specific repository
+   * @param {string} repoFullName - Full repository name (owner/repo)
+   * @param {Array} labels - List of labels from GitHub API
+   */
+  static async cacheLabels(repoFullName, labels) {
+    const key = `githubLabels_${repoFullName}`;
+    const timeKey = `${key}_cachedAt`;
+    await chrome.storage.local.set({
+      [key]: labels,
+      [timeKey]: Date.now()
+    });
+    console.log(`[GitHubCache] Cached ${labels.length} labels for ${repoFullName}`);
+  }
+
+  /**
+   * Get cached labels for a specific repository if not expired
+   * @param {string} repoFullName - Full repository name (owner/repo)
+   * @returns {Promise<Array|null>} Cached labels or null if expired/not found
+   */
+  static async getLabels(repoFullName) {
+    const key = `githubLabels_${repoFullName}`;
+    const timeKey = `${key}_cachedAt`;
+    const result = await chrome.storage.local.get([key, timeKey]);
+
+    const labels = result[key];
+    const cachedAt = result[timeKey];
+
+    if (!labels || !cachedAt) {
+      return null;
+    }
+
+    if (Date.now() - cachedAt > CACHE_TTL) {
+      console.log(`[GitHubCache] Label cache expired for ${repoFullName}`);
+      return null;
+    }
+
+    return labels;
+  }
+
+  /**
+   * Clear all GitHub caches (including all label caches)
    */
   static async clearAll() {
+    // Get all storage keys to find label caches
+    const allStorage = await chrome.storage.local.get(null);
+    const labelKeys = Object.keys(allStorage).filter(k => k.startsWith('githubLabels_'));
+
     await chrome.storage.local.remove([
       'githubRepos',
       'githubReposCachedAt',
       'githubReposRecentlyUsed',
       'githubProjects',
       'githubProjectsCachedAt',
-      'githubProjectsRecentlyUsed'
+      'githubProjectsRecentlyUsed',
+      ...labelKeys
     ]);
     console.log('[GitHubCache] Cleared all GitHub caches');
   }

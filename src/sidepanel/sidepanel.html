@@ -232,14 +232,22 @@
               placeholder="Detailed description (supports Markdown)"></textarea>
           </div>
 
-          <!-- Labels (Optional) -->
+          <!-- Labels (Optional) — autocomplete from repo labels -->
           <div class="form-group">
-            <label for="issueLabels">Labels (optional)</label>
-            <input
-              type="text"
-              id="issueLabels"
-              class="input"
-              placeholder="bug, enhancement, etc. (comma-separated)">
+            <label>Labels (optional)</label>
+            <div class="label-picker">
+              <div id="selectedLabelsContainer" class="selected-labels"></div>
+              <input
+                type="text"
+                id="labelSearchInput"
+                class="input"
+                placeholder="Search labels..."
+                autocomplete="off"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="labelDropdown">
+              <div id="labelDropdown" class="dropdown-list" style="display: none;" role="listbox"></div>
+            </div>
           </div>
 
           <!-- Attachments Preview (read-only, shown if attachments exist) -->

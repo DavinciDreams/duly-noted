@@ -149,7 +149,9 @@ const allReposList = document.getElementById('allReposList');
 const selectedRepoId = document.getElementById('selectedRepoId');
 const issueTitle = document.getElementById('issueTitle');
 const issueBody = document.getElementById('issueBody');
-const issueLabels = document.getElementById('issueLabels');
+const labelSearchInput = document.getElementById('labelSearchInput');
+const labelDropdown = document.getElementById('labelDropdown');
+const selectedLabelsContainer = document.getElementById('selectedLabelsContainer');
 const createIssueBtn = document.getElementById('createIssueBtn');
 const cancelIssueBtn = document.getElementById('cancelIssueBtn');
 
@@ -255,6 +257,24 @@ githubRepoSearch.addEventListener('focus', () => showRepoDropdown());
 githubRepoSearch.addEventListener('blur', () => {
   // Delay to allow click on repo item
   setTimeout(() => hideRepoDropdown(), 300);
+});
+
+// Label picker
+labelSearchInput.addEventListener('input', handleLabelSearch);
+labelSearchInput.addEventListener('focus', () => showLabelDropdown());
+labelSearchInput.addEventListener('blur', () => {
+  setTimeout(() => hideLabelDropdown(), 300);
+});
+labelSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const query = labelSearchInput.value.trim();
+    if (query) {
+      addSelectedLabel(query, null);
+      labelSearchInput.value = '';
+      hideLabelDropdown();
+    }
+  }
 });
 
 // GitHub Project form
@@ -1849,6 +1869,8 @@ async function init() {
 
 let repositories = [];
 let selectedRepo = null;
+let repoLabels = [];
+let selectedLabels = [];
 
 async function showGitHubIssueForm() {
   try {
@@ -1860,11 +1882,11 @@ async function showGitHubIssueForm() {
       issueTitle.value = (aiSummary?.status === 'done' && aiSummary.title) ? aiSummary.title : generateSmartTitle();
     }
 
-    // Pre-fill labels with AI-suggested tags
+    // Pre-fill labels with AI-suggested tags (will be refined after repo labels load)
     if (aiSummary?.status === 'done' && aiSummary.suggestedTags?.length > 0) {
-      const existing = issueLabels.value.split(',').map(l => l.trim()).filter(l => l);
-      const merged = [...new Set([...existing, ...aiSummary.suggestedTags])];
-      issueLabels.value = merged.join(', ');
+      for (const tag of aiSummary.suggestedTags) {
+        addSelectedLabel(tag, null);
+      }
     }
 
     // Show attachment preview if any exist
@@ -1984,7 +2006,163 @@ function handleRepoSelected(e) {
     e.currentTarget.classList.add('selected');
 
     hideRepoDropdown();
+
+    // Fetch labels for the selected repo
+    const [owner, repo] = selectedRepo.full_name.split('/');
+    fetchRepoLabels(owner, repo);
   }
+}
+
+// ============================================================================
+// Label Picker Functions
+// ============================================================================
+
+/**
+ * Fetch labels for a repo (with cache) and update the label picker UI.
+ * Also matches any AI-suggested tags against real repo labels.
+ */
+async function fetchRepoLabels(owner, repo) {
+  const fullName = `${owner}/${repo}`;
+  try {
+    // Check cache first
+    let labels = await GitHubCache.getLabels(fullName);
+    if (!labels) {
+      console.log(`[Labels] Fetching labels for ${fullName}`);
+      labels = await GitHubService.getRepoLabels(owner, repo);
+      await GitHubCache.cacheLabels(fullName, labels);
+    } else {
+      console.log(`[Labels] Using cached labels for ${fullName}`);
+    }
+
+    repoLabels = labels;
+    console.log(`[Labels] ${labels.length} labels available for ${fullName}`);
+
+    // Match AI-suggested tags against real repo labels
+    if (aiSummary?.status === 'done' && aiSummary.suggestedTags?.length > 0) {
+      // Clear pre-filled AI tags and re-add with real color info
+      const previousAITags = [...selectedLabels];
+      selectedLabels = [];
+      selectedLabelsContainer.innerHTML = '';
+
+      for (const tag of previousAITags) {
+        const match = repoLabels.find(l => l.name.toLowerCase() === tag.toLowerCase());
+        if (match) {
+          addSelectedLabel(match.name, match.color);
+        } else {
+          addSelectedLabel(tag, null);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[Labels] Failed to fetch labels for ${fullName}:`, err);
+    repoLabels = [];
+  }
+}
+
+function showLabelDropdown() {
+  renderLabelDropdown();
+  labelDropdown.style.display = 'block';
+  labelSearchInput.setAttribute('aria-expanded', 'true');
+}
+
+function hideLabelDropdown() {
+  labelDropdown.style.display = 'none';
+  labelSearchInput.setAttribute('aria-expanded', 'false');
+}
+
+function handleLabelSearch() {
+  renderLabelDropdown();
+}
+
+function renderLabelDropdown() {
+  const query = labelSearchInput.value.trim().toLowerCase();
+
+  // Filter out already-selected labels
+  const available = repoLabels.filter(l => !selectedLabels.includes(l.name));
+
+  // Filter by search query
+  const filtered = query
+    ? available.filter(l =>
+        l.name.toLowerCase().includes(query) ||
+        (l.description && l.description.toLowerCase().includes(query))
+      )
+    : available;
+
+  let html = '';
+
+  if (filtered.length > 0) {
+    html = filtered.slice(0, 20).map(label => `
+      <div class="label-item" data-label-name="${escapeHtml(label.name)}" data-label-color="${label.color || ''}">
+        <span class="label-color-dot" style="background-color: #${label.color || 'ccc'};"></span>
+        <div class="label-item-info">
+          <div class="label-item-name">${escapeHtml(label.name)}</div>
+          ${label.description ? `<div class="label-item-desc">${escapeHtml(label.description)}</div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } else if (repoLabels.length === 0) {
+    html = '<div class="label-empty">Select a repository to see labels</div>';
+  } else if (query && filtered.length === 0) {
+    // Offer to add as custom label
+    html = `<div class="label-add-custom" data-label-name="${escapeHtml(query)}" data-label-color="">
+      + Add "${escapeHtml(query)}" as custom label
+    </div>`;
+  } else {
+    html = '<div class="label-empty">All labels selected</div>';
+  }
+
+  labelDropdown.innerHTML = html;
+
+  // Add click handlers
+  labelDropdown.querySelectorAll('.label-item, .label-add-custom').forEach(item => {
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const name = item.getAttribute('data-label-name');
+      const color = item.getAttribute('data-label-color') || null;
+      addSelectedLabel(name, color);
+      labelSearchInput.value = '';
+      hideLabelDropdown();
+    });
+  });
+}
+
+/**
+ * Add a label to the selected set and render a pill.
+ * @param {string} name - Label name
+ * @param {string|null} color - Hex color without # (e.g. 'd73a4a'), or null for custom
+ */
+function addSelectedLabel(name, color) {
+  // Prevent duplicates (case-insensitive)
+  if (selectedLabels.some(l => l.toLowerCase() === name.toLowerCase())) return;
+
+  selectedLabels.push(name);
+
+  const pill = document.createElement('span');
+  pill.className = 'label-pill';
+  pill.setAttribute('data-label', name);
+
+  const dot = document.createElement('span');
+  dot.className = 'label-color-dot';
+  dot.style.backgroundColor = color ? `#${color}` : '#888';
+  pill.appendChild(dot);
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'label-pill-name';
+  nameSpan.textContent = name;
+  pill.appendChild(nameSpan);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'label-pill-remove';
+  removeBtn.type = 'button';
+  removeBtn.innerHTML = '&times;';
+  removeBtn.setAttribute('aria-label', `Remove label ${name}`);
+  removeBtn.addEventListener('click', () => {
+    selectedLabels = selectedLabels.filter(l => l !== name);
+    pill.remove();
+  });
+  pill.appendChild(removeBtn);
+
+  selectedLabelsContainer.appendChild(pill);
 }
 
 async function handleCreateIssue() {
@@ -2035,17 +2213,11 @@ async function handleCreateIssue() {
 
     createIssueBtn.textContent = 'Creating issue...';
 
-    // Parse labels (comma-separated)
-    const labels = issueLabels.value
-      .split(',')
-      .map(l => l.trim())
-      .filter(l => l.length > 0);
-
-    // Create issue data
+    // Create issue data with selected labels
     const issueData = {
       title: issueTitle.value.trim(),
       body: body,
-      labels: labels.length > 0 ? labels : undefined
+      labels: selectedLabels.length > 0 ? [...selectedLabels] : undefined
     };
 
     console.log('[GitHub Issue] Creating issue:', issueData);
@@ -2100,7 +2272,11 @@ function resetIssueForm() {
   selectedRepoId.value = '';
   issueTitle.value = '';
   issueBody.value = '';
-  issueLabels.value = '';
+  labelSearchInput.value = '';
+  selectedLabels = [];
+  repoLabels = [];
+  selectedLabelsContainer.innerHTML = '';
+  hideLabelDropdown();
   selectedRepo = null;
 }
 
@@ -2617,7 +2793,7 @@ Respond with ONLY valid JSON (no markdown, no backticks):
   "consoleSummary": "one-line plain English summary of console logs, or empty string if none"
 }
 
-For suggestedTags, choose 1-3 from: bug, enhancement, UI, performance, error, accessibility, styling, API, security, documentation.
+For suggestedTags, choose 1-3 from: ${repoLabels.length > 0 ? repoLabels.map(l => l.name).join(', ') : 'bug, enhancement, UI, performance, error, accessibility, styling, API, security, documentation'}.
 For consoleSummary, summarize errors/warnings in plain English. If no console logs, use empty string.`;
 
     promptParts.push({ type: 'text', value: context });
