@@ -246,12 +246,6 @@ const DEFAULT_SETTINGS = {
   lastDestination: null, // Remember last used destination
   theme: 'auto', // 'light' | 'dark' | 'auto'
 
-  // AI
-  aiSummaryEnabled: true, // Master toggle for AI-powered capture analysis
-  aiAutoTitle: true,       // AI auto-fills issue title
-  aiAutoTags: true,        // AI auto-suggests labels
-  aiAutoDescription: true, // AI auto-fills note box with description
-
   // GitHub Defaults
   defaultTags: [],         // Labels always added to every GitHub issue
 };

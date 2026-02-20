@@ -80,18 +80,6 @@
           </div>
           <div id="attachmentsPreview" class="attachments-preview"></div>
 
-          <!-- AI Summary Card (hidden until AI generates content) -->
-          <div id="aiSummaryCard" class="ai-summary-card" style="display: none;">
-            <div class="ai-summary-header">
-              <svg class="ai-summary-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-              <span class="ai-summary-label">AI Summary</span>
-              <button id="dismissAISummary" class="remove-btn" title="Dismiss" aria-label="Dismiss AI summary">&times;</button>
-            </div>
-            <div id="aiSummaryContent" class="ai-summary-content"></div>
-            <div id="aiSummaryTags" class="ai-summary-tags"></div>
-          </div>
         </div>
 
         <!-- Action Buttons (always visible, enabled when content exists) -->
@@ -480,36 +468,6 @@
                 </div>
                 <button id="notionSignOutBtn" class="btn btn-secondary btn-small">Sign Out</button>
               </div>
-            </div>
-          </div>
-
-          <div class="settings-section">
-            <h3>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-              AI Summary
-            </h3>
-            <p class="help-text">Automatically analyze captures using on-device AI.</p>
-            <div class="developer-mode-toggle">
-              <label class="toggle-label">
-                <input type="checkbox" id="aiSummaryToggle" checked>
-                <span>Enable AI Summary</span>
-              </label>
-            </div>
-            <div id="aiSubToggles" class="ai-sub-toggles">
-              <label class="toggle-label">
-                <input type="checkbox" id="aiAutoTitleToggle" checked>
-                <span>Auto-fill issue title</span>
-              </label>
-              <label class="toggle-label">
-                <input type="checkbox" id="aiAutoTagsToggle" checked>
-                <span>Auto-suggest labels</span>
-              </label>
-              <label class="toggle-label">
-                <input type="checkbox" id="aiAutoDescriptionToggle" checked>
-                <span>Auto-fill description</span>
-              </label>
             </div>
           </div>
 

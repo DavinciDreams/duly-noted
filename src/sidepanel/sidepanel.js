@@ -109,20 +109,6 @@ let capturedElement = null;
 let capturedConsoleLogs = [];
 let consoleMonitoringTabId = null;
 
-// AI Summary state
-let aiSummary = null;
-let aiSummaryDebounceTimer = null;
-
-// AI Summary elements
-const aiSummaryToggle = document.getElementById('aiSummaryToggle');
-const aiAutoTitleToggle = document.getElementById('aiAutoTitleToggle');
-const aiAutoTagsToggle = document.getElementById('aiAutoTagsToggle');
-const aiAutoDescriptionToggle = document.getElementById('aiAutoDescriptionToggle');
-const aiSubToggles = document.getElementById('aiSubToggles');
-const aiSummaryCard = document.getElementById('aiSummaryCard');
-const aiSummaryContent = document.getElementById('aiSummaryContent');
-const aiSummaryTags = document.getElementById('aiSummaryTags');
-
 // Default tags elements
 const defaultTagsContainer = document.getElementById('defaultTagsContainer');
 const defaultTagsInput = document.getElementById('defaultTagsInput');
@@ -303,17 +289,6 @@ captureScreenshotBtn.addEventListener('click', handleCaptureScreenshot);
 selectElementBtn.addEventListener('click', handleSelectElement);
 captureConsoleBtn.addEventListener('click', handleCaptureConsole);
 
-// AI Summary dismiss
-document.getElementById('dismissAISummary')?.addEventListener('click', () => {
-  aiSummary = null;
-  renderAISummaryUI();
-});
-
-// AI master toggle → enable/disable sub-toggles
-aiSummaryToggle.addEventListener('change', () => {
-  aiSubToggles.classList.toggle('disabled', !aiSummaryToggle.checked);
-});
-
 // Default tags input — Enter to add pill
 defaultTagsInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') {
@@ -366,7 +341,6 @@ chrome.runtime.onMessage.addListener((message) => {
     updateAttachmentsPreview();
     updateActionButtons();
     showToast('Element captured!', 'success');
-    triggerAISummary();
   }
   if (message.type === 'ELEMENT_SELECTION_CANCELLED') {
     showToast('Element selection cancelled', 'info');
@@ -726,14 +700,6 @@ function resetRecordingUI() {
   capturedConsoleLogs = [];
   consoleMonitoringTabId = null;
   attachmentsPreview.innerHTML = '';
-
-  // Clear AI summary
-  aiSummary = null;
-  if (aiSummaryDebounceTimer) {
-    clearTimeout(aiSummaryDebounceTimer);
-    aiSummaryDebounceTimer = null;
-  }
-  renderAISummaryUI();
 
   // Disable action buttons
   updateActionButtons();
@@ -1139,28 +1105,12 @@ async function showDestinationChooser() {
 async function handleDestinationSelected(destination) {
   console.log('[Side Panel] Destination selected:', destination);
 
-  // Kick off AI re-run immediately so it runs in parallel with form loading.
-  // The user's full description (currentTranscription) is available now.
-  let aiReadyPromise = Promise.resolve();
-  if (destination !== 'draft') {
-    const { getSettings } = await import('../lib/storage.js');
-    const settings = await getSettings();
-    const needsAI = settings.aiSummaryEnabled !== false &&
-      (settings.aiAutoTitle !== false || settings.aiAutoTags !== false);
-    if (needsAI) {
-      // Wrap in .catch() so AI failure never crashes the GitHub/form loading flow
-      aiReadyPromise = generateAISummary().catch(err => {
-        console.warn('[AI Summary] Non-blocking AI error:', err);
-      });
-    }
-  }
-
   if (destination === 'draft') {
     await saveDraft();
   } else if (destination === 'github-issue') {
-    await showGitHubIssueForm(aiReadyPromise);
+    await showGitHubIssueForm();
   } else if (destination === 'github-project') {
-    await showGitHubProjectForm(aiReadyPromise);
+    await showGitHubProjectForm();
   } else if (destination === 'notion') {
     await handleNotionDestination();
   } else {
@@ -1270,13 +1220,6 @@ async function loadSettings() {
 
     githubTokenInput.value = settings.githubToken || '';
     maxDurationInput.value = settings.maxRecordingDuration || 300;
-    aiSummaryToggle.checked = settings.aiSummaryEnabled !== false;
-
-    // Granular AI sub-toggles
-    aiAutoTitleToggle.checked = settings.aiAutoTitle !== false;
-    aiAutoTagsToggle.checked = settings.aiAutoTags !== false;
-    aiAutoDescriptionToggle.checked = settings.aiAutoDescription !== false;
-    aiSubToggles.classList.toggle('disabled', !aiSummaryToggle.checked);
 
     // Default tags pills
     defaultTagsContainer.innerHTML = '';
@@ -1311,10 +1254,6 @@ async function handleSaveSettings() {
     const updates = {
       githubToken: pat,
       maxRecordingDuration: parseInt(maxDurationInput.value) || 300,
-      aiSummaryEnabled: aiSummaryToggle.checked,
-      aiAutoTitle: aiAutoTitleToggle.checked,
-      aiAutoTags: aiAutoTagsToggle.checked,
-      aiAutoDescription: aiAutoDescriptionToggle.checked,
       defaultTags: getDefaultTagsFromPills(),
     };
 
@@ -1624,8 +1563,7 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
 
     // Generate title from first line of transcription or smart default
     const lines = currentTranscription.trim().split('\n');
-    const aiTitle = (aiSummary?.status === 'done' && aiSummary.title) ? aiSummary.title : '';
-    const title = truncateText(lines[0], 100) || aiTitle || generateSmartTitle() || 'Voice Note';
+    const title = truncateText(lines[0], 100) || generateSmartTitle() || 'Voice Note';
     const content = currentTranscription;
 
     // Upload screenshots to Notion if any
@@ -1661,9 +1599,6 @@ async function sendToNotion(parent, parentName, titlePropertyName = 'Name') {
     const consoleBlocks = [];
     if (capturedConsoleLogs.length > 0) {
       let consoleText = '';
-      if (aiSummary?.status === 'done' && aiSummary.consoleSummary) {
-        consoleText += `Summary: ${aiSummary.consoleSummary}\n\n`;
-      }
       consoleText += capturedConsoleLogs.slice(0, 20).map(l => {
         const time = new Date(l.timestamp).toLocaleTimeString();
         return `[${l.level.toUpperCase()}] ${time} ${l.message}`;
@@ -1974,7 +1909,7 @@ let selectedRepo = null;
 let repoLabels = [];
 let selectedLabels = [];
 
-async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
+async function showGitHubIssueForm() {
   try {
     // Reset form to clean state before populating
     resetIssueForm();
@@ -1992,7 +1927,7 @@ async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
       }
     }
 
-    // Set a temporary smart title while AI runs in parallel
+    // Set a smart title from captured context
     const smartDefault = generateSmartTitle();
     if (!issueTitle.value.trim()) {
       issueTitle.value = smartDefault;
@@ -2005,35 +1940,10 @@ async function showGitHubIssueForm(aiReadyPromise = Promise.resolve()) {
       renderAttachmentsInto(issueAttachmentsPreview);
     }
 
-    // Load repos + wait for AI in parallel (allSettled so AI failure can't break repo load)
+    // Load repositories
     showToast('Loading repositories...', 'info');
-    const [repoResult] = await Promise.allSettled([
-      GitHubService.fetchRepositories(),
-      aiReadyPromise,
-    ]);
-    if (repoResult.status === 'fulfilled') {
-      repositories = repoResult.value;
-    } else {
-      throw repoResult.reason;
-    }
+    repositories = await GitHubService.fetchRepositories();
     console.log(`[GitHub Issue] Loaded ${repositories.length} repositories`);
-
-    // Apply AI results now that both are done
-    const needsAITitle = settings.aiAutoTitle !== false;
-    const needsAITags = settings.aiAutoTags !== false;
-    if (aiSummary?.status === 'done') {
-      if (needsAITitle && aiSummary.title) {
-        const currentTitle = issueTitle.value.trim();
-        if (!currentTitle || currentTitle === smartDefault) {
-          issueTitle.value = aiSummary.title;
-        }
-      }
-      if (needsAITags && aiSummary.suggestedTags?.length > 0) {
-        for (const tag of aiSummary.suggestedTags) {
-          addSelectedLabel(tag, null);
-        }
-      }
-    }
 
     // Show the form
     showScreen(screens.GITHUB_ISSUE);
@@ -2185,20 +2095,16 @@ async function fetchRepoLabels(owner, repo) {
     repoLabels = labels;
     console.log(`[Labels] ${labels.length} labels available for ${fullName}`);
 
-    // Match AI-suggested tags against real repo labels
-    if (aiSummary?.status === 'done' && aiSummary.suggestedTags?.length > 0) {
-      // Clear pre-filled AI tags and re-add with real color info
-      const previousAITags = [...selectedLabels];
-      selectedLabels = [];
-      selectedLabelsContainer.innerHTML = '';
-
-      for (const tag of previousAITags) {
-        const match = repoLabels.find(l => l.name.toLowerCase() === tag.toLowerCase());
-        if (match) {
-          addSelectedLabel(match.name, match.color);
-        } else {
-          addSelectedLabel(tag, null);
-        }
+    // Re-add existing selected labels with real color info from repo
+    const previousLabels = [...selectedLabels];
+    selectedLabels = [];
+    selectedLabelsContainer.innerHTML = '';
+    for (const tag of previousLabels) {
+      const match = repoLabels.find(l => l.name.toLowerCase() === tag.toLowerCase());
+      if (match) {
+        addSelectedLabel(match.name, match.color);
+      } else {
+        addSelectedLabel(tag, null);
       }
     }
   } catch (err) {
@@ -2324,7 +2230,7 @@ async function handleCreateIssue() {
 
     // Auto-fill title if empty and we have context
     if (!issueTitle.value.trim()) {
-      issueTitle.value = (aiSummary?.status === 'done' && aiSummary.title) ? aiSummary.title : generateSmartTitle();
+      issueTitle.value = generateSmartTitle();
     }
 
     if (!issueTitle.value.trim()) {
@@ -2352,11 +2258,6 @@ async function handleCreateIssue() {
     const attachmentMarkdown = buildAttachmentMarkdown(screenshotUrls);
     if (attachmentMarkdown) {
       body = body ? body + '\n\n---\n\n' + attachmentMarkdown : attachmentMarkdown;
-    }
-
-    // Append AI source citation
-    if (aiSummary?.status === 'done' && aiSummary.sourceCitation) {
-      body = body ? body + '\n\n---\n\n**Source:** ' + aiSummary.sourceCitation : '**Source:** ' + aiSummary.sourceCitation;
     }
 
     // Branding footer
@@ -2488,40 +2389,21 @@ function hideHistoryDetailModal() {
 let projects = [];
 let selectedProject = null;
 
-async function showGitHubProjectForm(aiReadyPromise = Promise.resolve()) {
+async function showGitHubProjectForm() {
   try {
-    const { getSettings } = await import('../lib/storage.js');
-    const settings = await getSettings();
-
     // Pre-fill item body with transcription
     projectItemBody.value = currentTranscription;
 
-    // Set a temporary smart title while AI runs in parallel
+    // Set a smart title from captured context
     const smartDefault = generateSmartTitle();
     if (!projectItemTitle.value.trim()) {
       projectItemTitle.value = smartDefault;
     }
 
-    // Load projects + wait for AI in parallel (allSettled so AI failure can't break project load)
+    // Load projects
     showToast('Loading projects...', 'info');
-    const [projectResult] = await Promise.allSettled([
-      GitHubService.fetchProjects(),
-      aiReadyPromise,
-    ]);
-    if (projectResult.status === 'fulfilled') {
-      projects = projectResult.value;
-    } else {
-      throw projectResult.reason;
-    }
+    projects = await GitHubService.fetchProjects();
     console.log(`[GitHub Project] Loaded ${projects.length} projects`);
-
-    // Apply AI title now that both are done
-    if (settings.aiAutoTitle !== false && aiSummary?.status === 'done' && aiSummary.title) {
-      const currentTitle = projectItemTitle.value.trim();
-      if (!currentTitle || currentTitle === smartDefault) {
-        projectItemTitle.value = aiSummary.title;
-      }
-    }
 
     // Show the form
     showScreen(screens.GITHUB_PROJECT);
@@ -2734,7 +2616,7 @@ async function handleCaptureScreenshot() {
       return;
     }
 
-    const dataUrl = await chrome.tabs.captureVisibleTab(null, { format: 'png' });
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
 
     capturedScreenshots.push({
       dataUrl,
@@ -2759,9 +2641,6 @@ async function handleCaptureScreenshot() {
 
     // Copy to clipboard via offscreen document
     copyScreenshotToClipboard(dataUrl);
-
-    // Trigger AI summary analysis
-    triggerAISummary();
   } catch (error) {
     console.error('[Screenshot] Capture failed:', error);
     showToast(`Screenshot failed: ${error.message}`, 'error');
@@ -2830,7 +2709,6 @@ async function handleCaptureConsole() {
           updateAttachmentsPreview();
           updateActionButtons();
           showToast(`${capturedConsoleLogs.length} console entries captured`, 'success');
-          triggerAISummary();
         }
       });
     } else {
@@ -2891,239 +2769,7 @@ async function copyScreenshotToClipboard(dataUrl) {
 }
 
 /**
- * Try to generate AI description using Chrome's Prompt API (multimodal)
- */
-/**
- * Generate a comprehensive AI summary of all captured context.
- * Uses Chrome's Prompt API (Gemini Nano) for multimodal analysis.
- */
-async function generateAISummary() {
-  const { getSettings } = await import('../lib/storage.js');
-  const settings = await getSettings();
-  if (settings.aiSummaryEnabled === false) return;
-
-  // Check if any sub-toggle is enabled — skip AI call entirely if nothing is wanted
-  const wantTitle = settings.aiAutoTitle !== false;
-  const wantTags = settings.aiAutoTags !== false;
-  const wantDescription = settings.aiAutoDescription !== false;
-  if (!wantTitle && !wantTags && !wantDescription) {
-    console.log('[AI Summary] All sub-toggles off, skipping AI call');
-    return;
-  }
-
-  if (!self.ai?.languageModel) {
-    console.log('[AI Summary] Prompt API not available');
-    return;
-  }
-
-  try {
-    const capabilities = await self.ai.languageModel.capabilities();
-    if (capabilities.available === 'no') return;
-
-    // Show loading state
-    aiSummary = { status: 'loading', timestamp: Date.now() };
-    renderAISummaryUI();
-
-    const session = await self.ai.languageModel.create();
-    const promptParts = [];
-
-    // Build context text
-    let context = 'Analyze the following web capture and respond with JSON only.\n\n';
-
-    // Source info
-    const sourceUrl = capturedScreenshots[0]?.tabUrl || '';
-    const sourceTitle = capturedScreenshots[0]?.tabTitle || '';
-    if (sourceUrl) {
-      context += `Source page: "${sourceTitle}" at ${sourceUrl}\n`;
-    }
-
-    // Element context
-    if (capturedElement) {
-      const tag = capturedElement.tagName.toLowerCase();
-      const id = capturedElement.idAttribute ? `#${capturedElement.idAttribute}` : '';
-      const classes = capturedElement.className || '';
-      context += `Selected element: <${tag}${id}> classes="${classes}"\n`;
-      context += `CSS selector: ${capturedElement.cssSelector}\n`;
-    }
-
-    // Console log context
-    if (capturedConsoleLogs.length > 0) {
-      const errors = capturedConsoleLogs.filter(l => l.level === 'error');
-      const warnings = capturedConsoleLogs.filter(l => l.level === 'warn');
-      const lines = [];
-      if (errors.length > 0) {
-        lines.push(`${errors.length} errors:`);
-        errors.slice(0, 5).forEach(e => lines.push(`  - ${e.message.slice(0, 150)}`));
-      }
-      if (warnings.length > 0) {
-        lines.push(`${warnings.length} warnings:`);
-        warnings.slice(0, 3).forEach(w => lines.push(`  - ${w.message.slice(0, 150)}`));
-      }
-      context += `\nConsole output:\n${lines.join('\n')}\n`;
-    }
-
-    // User note context
-    if (currentTranscription) {
-      context += `\nUser note: "${currentTranscription.slice(0, 200)}"\n`;
-    }
-
-    // Dynamically build JSON schema based on enabled sub-toggles
-    const jsonFields = [];
-    const fieldInstructions = [];
-
-    if (wantTitle) {
-      jsonFields.push('"title": "short issue title under 60 chars"');
-    }
-    if (wantDescription) {
-      jsonFields.push('"description": "1-2 sentence summary of what this capture shows, where it is from, and what it depicts"');
-    }
-    if (wantTags) {
-      jsonFields.push('"suggestedTags": ["tag1", "tag2"]');
-      const tagList = repoLabels.length > 0 ? repoLabels.map(l => l.name).join(', ') : 'bug, enhancement, UI, performance, error, accessibility, styling, API, security, documentation';
-      fieldInstructions.push(`For suggestedTags, choose 1-3 from: ${tagList}.`);
-    }
-    // Always include consoleSummary (cheap, used in Notion flow)
-    jsonFields.push('"consoleSummary": "one-line plain English summary of console logs, or empty string if none"');
-    fieldInstructions.push('For consoleSummary, summarize errors/warnings in plain English. If no console logs, use empty string.');
-
-    context += `\nRespond with ONLY valid JSON (no markdown, no backticks):\n{\n  ${jsonFields.join(',\n  ')}\n}\n\n${fieldInstructions.join('\n')}`;
-
-    promptParts.push({ type: 'text', value: context });
-
-    // Screenshot as multimodal image
-    if (capturedScreenshots.length > 0) {
-      try {
-        const response = await fetch(capturedScreenshots[0].dataUrl);
-        const blob = await response.blob();
-        const imageBitmap = await createImageBitmap(blob);
-        promptParts.push({ type: 'image', value: imageBitmap });
-      } catch (imgErr) {
-        console.warn('[AI Summary] Could not process screenshot:', imgErr);
-      }
-    }
-
-    const result = await session.prompt(promptParts);
-    session.destroy();
-
-    // Parse response
-    try {
-      const cleaned = result.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-      const parsed = JSON.parse(cleaned);
-
-      // Build source citation
-      let sourceCitation = '';
-      if (sourceUrl) {
-        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        try {
-          const hostname = new URL(sourceUrl).hostname;
-          sourceCitation = `Captured from [${hostname}](${sourceUrl}) at ${time}`;
-        } catch {
-          sourceCitation = `Captured from ${sourceUrl} at ${time}`;
-        }
-      }
-
-      aiSummary = {
-        title: parsed.title || '',
-        description: parsed.description || '',
-        suggestedTags: Array.isArray(parsed.suggestedTags) ? parsed.suggestedTags : [],
-        consoleSummary: parsed.consoleSummary || '',
-        sourceCitation,
-        status: 'done',
-        timestamp: Date.now()
-      };
-    } catch {
-      console.warn('[AI Summary] Failed to parse AI response:', result);
-      aiSummary = { status: 'error', timestamp: Date.now() };
-    }
-  } catch (err) {
-    console.warn('[AI Summary] Generation failed:', err);
-    aiSummary = { status: 'error', timestamp: Date.now() };
-  }
-
-  renderAISummaryUI();
-  applyAISummaryAutoFill();
-}
-
-/**
- * Debounced trigger for AI summary generation.
- * Waits 800ms after the last capture event before starting.
- */
-function triggerAISummary() {
-  if (aiSummaryDebounceTimer) {
-    clearTimeout(aiSummaryDebounceTimer);
-  }
-  aiSummaryDebounceTimer = setTimeout(() => {
-    generateAISummary();
-  }, 800);
-}
-
-/**
- * Render the AI summary card based on current aiSummary state.
- */
-function renderAISummaryUI() {
-  if (!aiSummary || aiSummary.status === 'idle') {
-    aiSummaryCard.style.display = 'none';
-    return;
-  }
-
-  aiSummaryCard.style.display = 'block';
-
-  if (aiSummary.status === 'loading') {
-    aiSummaryContent.innerHTML = '<div class="ai-loading"><div class="spinner"></div> Analyzing capture...</div>';
-    aiSummaryTags.innerHTML = '';
-    return;
-  }
-
-  if (aiSummary.status === 'error') {
-    aiSummaryContent.innerHTML = '<span style="color: var(--text-disabled); font-style: italic;">AI analysis unavailable</span>';
-    aiSummaryTags.innerHTML = '';
-    return;
-  }
-
-  // status === 'done'
-  let html = '';
-  if (aiSummary.description) {
-    html += `<p>${escapeHtml(aiSummary.description)}</p>`;
-  }
-  if (aiSummary.consoleSummary) {
-    html += `<p><strong>Console:</strong> ${escapeHtml(aiSummary.consoleSummary)}</p>`;
-  }
-  if (aiSummary.sourceCitation) {
-    html += `<div class="ai-summary-source">${aiSummary.sourceCitation}</div>`;
-  }
-  aiSummaryContent.innerHTML = html;
-
-  // Render tag pills
-  if (aiSummary.suggestedTags && aiSummary.suggestedTags.length > 0) {
-    aiSummaryTags.innerHTML = aiSummary.suggestedTags
-      .map(tag => `<span class="ai-tag">${escapeHtml(tag)}</span>`)
-      .join('');
-  } else {
-    aiSummaryTags.innerHTML = '';
-  }
-}
-
-/**
- * Apply AI summary auto-fill to the note box if user hasn't typed anything.
- * Respects the aiAutoDescription setting.
- */
-async function applyAISummaryAutoFill() {
-  if (!aiSummary || aiSummary.status !== 'done') return;
-
-  const { getSettings } = await import('../lib/storage.js');
-  const settings = await getSettings();
-  if (settings.aiAutoDescription === false) return;
-
-  const noteBoxEmpty = noteBox.textContent.trim().length === 0;
-  if (noteBoxEmpty && aiSummary.description) {
-    noteBox.textContent = aiSummary.description;
-    currentTranscription = aiSummary.description;
-    updateActionButtons();
-  }
-}
-
-/**
- * Escape HTML to prevent XSS from AI-generated content.
+ * Escape HTML to prevent XSS in dynamically rendered content.
  */
 function escapeHtml(str) {
   const div = document.createElement('div');
